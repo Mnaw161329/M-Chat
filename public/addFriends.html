@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en" style="user-select: none;">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add Friends - JSON Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root { --bg:#0f172a; --panel:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#22d3ee; --accent2:#60a5fa; --success:#10b981; --warning:#f59e0b; --danger:#ef4444; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: linear-gradient(120deg, #0f172a, #0b1023); color: var(--text); }
+    header { padding:16px 20px; display:flex; gap:12px; align-items:center; border-bottom:1px solid #1f2937; background: rgba(17,24,39,.6); backdrop-filter: blur(6px); position:sticky; top:0; z-index:10; }
+    header a { color:var(--accent); text-decoration:none; font-size:14px; padding:6px 8px; border-radius:6px; transition: all 0.2s ease; }
+    header a:hover { background: rgba(34,211,238,.1); }
+    main { display:grid; grid-template-columns: 1fr; gap:20px; padding:20px; max-width:800px; margin:0 auto; min-height: calc(100vh - 96px); }
+    .search-section { background: rgba(17,24,39,.6); border:1px solid #1f2937; border-radius:12px; padding:20px; }
+    .user-list { display:flex; flex-direction:column; gap:8px; max-height:400px; overflow:auto; }
+    .search-form input { flex:1; padding:12px 16px; border-radius:10px; border:1px solid #1f2937; background:#0b1220; color:#e5e7eb; font-size:14px; }
+    .search-form button { padding:12px 16px; border-radius:10px; border:1px solid #334155; background: linear-gradient(120deg, var(--accent), var(--accent2)); color:#081019; font-weight:600; cursor:pointer; }
+    .user-item { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-radius:10px; border:1px solid #1f2937; background:#0b1220; transition: all 0.2s ease; }
+    .user-item:hover { background: rgba(34,211,238,.1); border-color:#334155; }
+    .user-info { display:flex; align-items:center; gap:12px; flex:1; }
+    .user-avatar { width:32px; height:32px; border-radius:50%; background:linear-gradient(120deg, var(--accent), var(--accent2)); display:flex; align-items:center; justify-content:center; font-weight:600; font-size:14px; }
+    .user-details h4 { margin:0; font-size:14px; color:#e5e7eb; }
+    .user-details p { margin:0; font-size:12px; color:var(--muted); }
+    .friend-actions { display:flex; gap:8px; }
+    .btn { padding:8px 12px; border-radius:8px; border:none; font-weight:600; cursor:pointer; font-size:12px; transition: all 0.2s ease; }
+    .btn-primary { background: linear-gradient(120deg, var(--accent), var(--accent2)); color:#081019; }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(34,211,238,.3); }
+    .btn-success { background: var(--success); color:#081019; }
+    .btn-success:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(16,185,129,.3); }
+    .btn-danger { background: var(--danger); color:#ffffff; }
+    .btn-danger:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(239,68,68,.3); }
+    .btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+    .status { padding:8px 12px; border-radius:6px; font-size:11px; font-weight:600; }
+    .status-pending { background: rgba(245,158,11,.2); color:var(--warning); }
+    .menu-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.3);
+      display: none;
+    }
+
+    .menu-overlay.show {
+      display: block;
+    }
+
+    .menu-card {
+    position: fixed;
+    top: 60px;
+    right: 20px;
+    width: 280px;
+    background: rgba(17,24,39,0.95);
+    border: 1px solid #1f2937;
+    border-radius: 12px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    z-index: 1000;
+    display: none;
+    animation: slideInRight 0.2s ease-out;
+  }
+
+    .menu-card.show {
+      display: block;
+    }
+
+    @keyframes slideInRight {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .menu-header {
+      padding: 20px;
+      border-bottom: 1px solid #1f2937;
+      text-align: center;
+    }
+
+    .menu-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(120deg, var(--accent), var(--accent2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 18px;
+      margin: 0 auto 12px auto;
+    }
+
+    .menu-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e5e7eb;
+      margin: 0 0 4px 0;
+    }
+
+    .menu-email {
+      font-size: 12px;
+      color: var(--muted);
+      margin: 0 0 8px 0;
+      user-select: none;
+    }
+
+    .menu-id {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: monospace;
+      background: rgba(34,211,238,0.1);
+      padding: 4px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      cursor: pointer;
+      user-select: text;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .menu-id:hover {
+      background: rgba(34,211,238,0.2);
+      border-color: var(--accent2);
+      color: var(--accent2);
+      transform: scale(1.02);
+    }
+
+    .menu-id.copied {
+      background: var(--success);
+      color: white;
+      border-color: var(--success);
+    }
+
+    .menu-content {
+      padding: 16px;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 8px;
+    }
+
+    .menu-item:hover {
+      background: rgba(34,211,238,0.1);
+    }
+
+    .menu-item-icon {
+      width: 20px;
+      height: 20px;
+      color: var(--accent2);
+    }
+
+    .menu-item-text {
+      flex: 1;
+      font-size: 14px;
+      color: #e5e7eb;
+    }
+
+    .menu-item-right {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .menu-divider {
+      height: 1px;
+      background: #1f2937;
+      margin: 12px 0;
+    }
+
+    .theme-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .theme-toggle:hover {
+      background: rgba(34,211,238,0.1);
+    }
+
+    .theme-text {
+      font-size: 14px;
+      color: #e5e7eb;
+    }
+
+    .theme-indicator {
+      width: 24px;
+      height: 14px;
+      border-radius: 7px;
+      background: #1f2937;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .theme-indicator.active {
+      background: var(--accent);
+    }
+
+    .theme-indicator::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #e5e7eb;
+      transition: all 0.2s ease;
+      transform: translateX(0);
+    }
+
+    .theme-indicator.active::after {
+      transform: translateX(10px);
+      background: #081019;
+    }
+
+    .logout-btn {
+      background: rgba(239,68,68,0.2);
+      color: #fca5a5;
+      border: 1px solid rgba(239,68,68,0.3);
+    }
+
+    .user-list {
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      max-height:400px;
+      overflow:auto;
+    }
+
+    .user-item {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:12px 16px;
+      border-radius:10px;
+      border:1px solid #1f2937;
+      background:#0b1220;
+      transition: all 0.2s ease;
+    }
+
+    .user-item:hover {
+      background: rgba(34,211,238,.1);
+      border-color:#334155;
+    }
+
+    .user-info {
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex:1;
+    }
+
+    .user-avatar {
+      width:32px;
+      height:32px;
+      border-radius:50%;
+      background:linear-gradient(120deg, var(--accent), var(--accent2));
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:600;
+      font-size:14px;
+    }
+
+    .user-details h4 {
+      margin:0;
+      font-size:14px;
+      color:#e5e7eb;
+    }
+
+    .user-details p {
+      margin:0;
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .friend-actions {
+      display:flex;
+      gap:8px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/private" title="Back to Private Chat">
+      <i class="fas fa-arrow-left"></i>
+    </a>
+    <a href="#" id="menuBtn" style="color:var(--muted); text-decoration:none; font-size:14px; margin-left:auto; padding:6px 8px; border-radius:6px; transition: all 0.2s ease;" title="Menu">
+      <i class="fas fa-bars"></i>
+    </a>
+  </header>
+
+  <!-- Menu Overlay -->
+  <div id="menuOverlay" class="menu-overlay"></div>
+
+  <!-- Menu Card -->
+  <div id="menuCard" class="menu-card">
+    <div class="menu-header">
+      <div id="menuAvatar" class="menu-avatar">U</div>
+      <div id="menuName" class="menu-name">User Name</div>
+      <div id="menuEmail" class="menu-email">user@example.com</div>
+      <div id="menuId" class="menu-id">ID: 12345</div>
+    </div>
+    <div class="menu-content">
+      <div class="theme-toggle" id="themeToggle">
+        <span class="theme-text">Dark Theme</span>
+        <div id="themeIndicator" class="theme-indicator active"></div>
+      </div>
+
+      <div class="menu-divider"></div>
+
+      <div class="menu-item" id="profileBtn">
+        <i class="fas fa-user menu-item-icon"></i>
+        <span class="menu-item-text">Profile Settings</span>
+        <i class="fas fa-chevron-right menu-item-right"></i>
+      </div>
+
+      <div class="menu-item" id="privacyBtn">
+        <i class="fas fa-lock menu-item-icon"></i>
+        <span class="menu-item-text">Privacy</span>
+        <i class="fas fa-chevron-right menu-item-right"></i>
+      </div>
+
+      <div class="menu-item" id="helpBtn">
+        <i class="fas fa-question-circle menu-item-icon"></i>
+        <span class="menu-item-text">Help & Support</span>
+        <i class="fas fa-chevron-right menu-item-right"></i>
+      </div>
+
+      <div class="menu-divider"></div>
+
+      <div class="menu-item logout-btn" id="logoutBtn">
+        <i class="fas fa-sign-out-alt menu-item-icon"></i>
+        <span class="menu-item-text">Logout</span>
+      </div>
+    </div>
+  </div>
+
+  <main>
+    <div class="search-section">
+      <h2 style="margin:0 0 16px 0; color:var(--accent);">Find Friends</h2>
+      <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px;">
+        <div style="display:flex; gap:8px; align-items:center; flex:1;">
+          <input type="text" id="searchInput" placeholder="Search..." style="flex:1; padding:8px 12px; border-radius:6px; border:1px solid #1f2937; background:#0b1220; color:#e5e7eb; font-size:14px;" oninput="handleSearch(event)" onkeyup="handleSearch(event)">
+        </div>
+      </div>
+
+      <div id="searchResults" class="user-list">
+        <!-- All users will be populated here -->
+        <div id="loadingIndicator" style="text-align:center; color:var(--muted); padding:20px;">
+          <i class="fas fa-spinner fa-spin" style="font-size:24px; margin-bottom:8px;"></i>
+          <p>Loading users...</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/menu.js"></script>
+  <script>
+    // Make search functions available immediately (before IIFE)
+    let searchTimeout = null;
+    let allUsers = [];
+    let searchTerm = '';
+    let userName = null; // Current user name - available globally
+    let currentUser = null; // Current user email - available globally
+
+    function handleSearch(event) {
+      // Clear previous timeout
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+
+      // Update search term
+      searchTerm = event.target.value.toLowerCase();
+
+      // Debounce search to avoid excessive filtering
+      searchTimeout = setTimeout(() => {
+        performSearch();
+      }, 100);
+    }
+
+    function performSearch() {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+        searchTimeout = null;
+      }
+
+      const searchInput = document.getElementById('searchInput');
+      searchTerm = searchInput.value.toLowerCase().trim();
+
+      console.log(`🔍 Auto-searching for: "${searchTerm}"`);
+
+      if (!searchTerm) {
+        // No search term, show all users
+        displayUsers(allUsers);
+        return;
+      }
+
+      // Filter users based on search term
+      const filteredUsers = allUsers.filter(user => {
+        const name = (user.userName || '').toLowerCase();
+        const email = (user.userEmail || '').toLowerCase();
+        const userId = (user.userId || '').toLowerCase();
+
+        return name.includes(searchTerm) ||
+               email.includes(searchTerm) ||
+               userId.includes(searchTerm);
+      });
+
+      console.log(`🔍 Found ${filteredUsers.length} users matching "${searchTerm}"`);
+      displayUsers(filteredUsers);
+    }
+
+    function clearSearch() {
+      // Clear any pending search timeout
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+        searchTimeout = null;
+      }
+
+      const searchInput = document.getElementById('searchInput');
+      searchInput.value = '';
+      searchTerm = '';
+      console.log('🧹 Search cleared, showing all users');
+      displayUsers(allUsers);
+    }
+
+    function showUserDetails(userId, userName, userEmail) {
+      const details = `
+Name: ${userName || 'N/A'}
+Email: ${userEmail || 'N/A'}
+User ID: ${userId || 'N/A'}
+      `.trim();
+
+      alert(`User Details:\n\n${details}`);
+    }
+
+    // Function to display users in the UI
+    function displayUsers(users) {
+      const searchResults = document.getElementById('searchResults');
+
+      if (users.length === 0) {
+        searchResults.innerHTML = `
+          <div style="text-align:center; color:var(--muted); padding:20px;">
+            <p>No users found</p>
+            <p>The system doesn't have any users to display.</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Clear existing content
+      searchResults.innerHTML = '';
+
+      // Render each user
+      users.forEach((user, index) => {
+        if (user.userName === userName) {
+          console.log(`Skipping current user: ${user.userName}`);
+          return; // Don't show current user
+        }
+
+        const userItem = document.createElement('div');
+        userItem.className = 'user-item';
+
+        // Get friendship status and button HTML
+        const { buttonHtml, statusText } = getFriendshipButton(user);
+
+        userItem.innerHTML = `
+          <div class="user-info">
+            <div class="user-avatar">${getUserAvatar(user.displayName || user.userName)}</div>
+            <div class="user-details">
+              <h4>${escapeHtml(user.displayName || user.userName || getNameFromEmail(user.userEmail))}</h4>
+              ${user.userEmail ? `<small style="color:var(--muted); font-size:11px;">${escapeHtml(user.userEmail)}</small>` : ''}
+              ${statusText ? `<div style="margin-top:4px;"><small style="color:var(--accent2); font-size:10px; font-weight:600;">${statusText}</small></div>` : ''}
+            </div>
+          </div>
+          <div class="friend-actions">
+            ${buttonHtml}
+          </div>
+        `;
+        searchResults.appendChild(userItem);
+      });
+
+      console.log(`Displayed ${users.length} users`);
+    }
+
+    // Function to get appropriate button HTML based on friendship status
+    function getFriendshipButton(user) {
+      const status = user.friendshipStatus || 'none';
+      const userEmail = user.userEmail;
+
+      switch (status) {
+        case 'friend':
+          return {
+            buttonHtml: `<button class="btn" style="background: var(--success); color: white;" disabled>
+              <i class="fas fa-user-check"></i> Friend
+            </button>`,
+            statusText: 'Already friends'
+          };
+
+        case 'sent':
+          return {
+            buttonHtml: `<button class="btn btn-danger" onclick="cancelFriendRequest('${escapeHtml(userEmail)}')" title="Cancel friend request to ${escapeHtml(userEmail)}">
+              <i class="fas fa-times"></i> Cancel
+            </button>`,
+            statusText: 'Request sent'
+          };
+
+        case 'received':
+          return {
+            buttonHtml: `
+              <button class="btn btn-success" onclick="acceptFriendRequest('${escapeHtml(userEmail)}')" title="Accept friend request from ${escapeHtml(userEmail)}" style="margin-right:8px;">
+                <i class="fas fa-check"></i> Accept
+              </button>
+              <button class="btn btn-danger" onclick="rejectFriendRequest('${escapeHtml(userEmail)}')" title="Reject friend request from ${escapeHtml(userEmail)}">
+                <i class="fas fa-times"></i> Reject
+              </button>
+            `,
+            statusText: 'Request received'
+          };
+
+        default: // 'none'
+          return {
+            buttonHtml: `<button class="btn btn-primary" onclick="sendFriendRequest('${escapeHtml(userEmail)}')" title="Send friend request to ${escapeHtml(userEmail)}">
+              <i class="fas fa-user-plus"></i> Add Friend
+            </button>`,
+            statusText: null
+          };
+      }
+    }
+
+    // Utility function to get user avatar
+    function getUserAvatar(name) {
+      return name ? name.charAt(0).toUpperCase() : '?';
+    }
+
+    // Utility function to extract name from email
+    function getNameFromEmail(email) {
+      if (!email) return 'Unknown';
+      const name = email.split('@')[0];
+      return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+    }
+
+    // Utility function to escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    (() => {
+      const socket = io();
+      const searchResults = document.getElementById('searchResults');
+      const loadingIndicator = document.getElementById('loadingIndicator');
+
+      // Note: userName and currentUser are now defined globally above
+
+      // Function to load and display all users
+      async function loadAllUsers() {
+        try {
+          console.log('🚀 Starting loadAllUsers function...');
+          console.log('📍 Current timestamp:', new Date().toISOString());
+
+          // Show loading indicator
+          loadingIndicator.style.display = 'block';
+          loadingIndicator.innerHTML = `
+            <div style="text-align:center; color:var(--muted); padding:20px;">
+              <i class="fas fa-spinner fa-spin" style="font-size:24px; margin-bottom:8px;"></i>
+              <p>Loading users...</p>
+            </div>
+          `;
+
+          console.log('📡 Making fetch request to /api/users/addFriends');
+          console.log('🔗 Full URL:', window.location.origin + '/api/users/addFriends');
+
+          const response = await fetch('/api/users/addFriends', {
+            credentials: 'include', // Include cookies in the request
+            headers: {
+              'Cache-Control': 'no-cache', // Prevent caching
+              'Pragma': 'no-cache'
+            }
+          });
+
+          console.log('📊 Response status:', response.status);
+          console.log('📊 Response ok:', response.ok);
+          console.log('📊 Response type:', response.type);
+          console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ Response not ok:', response.status, errorText);
+            throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+          }
+
+          console.log('📝 Parsing JSON response...');
+          const responseText = await response.text();
+          console.log('📝 Raw response text:', responseText);
+
+          if (!responseText.trim()) {
+            console.error('❌ Empty response received');
+            throw new Error('Empty response from server');
+          }
+
+          const responseData = JSON.parse(responseText);
+          console.log('📋 Parsed response data:', responseData);
+
+          if (!responseData.success) {
+            console.error('❌ API request failed:', responseData.error);
+            throw new Error(responseData.error || 'API request failed');
+          }
+
+          // Handle both new format (data.users) and old format (users) for compatibility
+          let users = [];
+          if (responseData.data && responseData.data.users) {
+            // Create a lookup map for usernames
+            const usersMap = {};
+            responseData.data.users.forEach(u => {
+              usersMap[u.userEmail] = u.userName;
+            });
+
+            users = responseData.data.users.map(user => ({
+              ...user,
+              displayName: usersMap[user.userEmail] || getNameFromEmail(user.userEmail)
+            }));
+          } else if (responseData.users) {
+            // Create a lookup map for usernames
+            const usersMap = {};
+            responseData.users.forEach(u => {
+              usersMap[u.userEmail] = u.userName;
+            });
+
+            users = responseData.users.map(user => ({
+              ...user,
+              displayName: usersMap[user.userEmail] || getNameFromEmail(user.userEmail)
+            }));
+          } else {
+            console.error('❌ Invalid response format:', responseData);
+            console.error('❌ Expected users array but got:', Object.keys(responseData));
+            throw new Error('Invalid response format: missing users data');
+          }
+
+          console.log(`✅ Successfully loaded ${users.length} users`);
+          console.log('👥 Users data preview:', users.slice(0, 2)); // Show first 2 users
+
+          // Store all users for search functionality
+          allUsers = users;
+          console.log(`💾 Stored ${allUsers.length} users for search functionality`);
+
+          // Hide loading indicator
+          loadingIndicator.style.display = 'none';
+
+          // Display users
+          displayUsers(users);
+
+        } catch (error) {
+          console.error('💥 Failed to load users:', error);
+          console.error('💥 Error details:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+            status: error.status,
+            statusText: error.statusText,
+            cause: error.cause
+          });
+
+          // Log the exact line where the error occurred
+          console.error('💥 Error occurred in loadAllUsers function');
+
+          loadingIndicator.style.display = 'none';
+          searchResults.innerHTML = `
+            <div style="text-align:center; color:var(--danger); padding:20px;">
+              <i class="fas fa-exclamation-triangle" style="font-size:24px; margin-bottom:8px;"></i>
+              <p>Failed to load users: ${error.message || 'Unknown error'}</p>
+              <p>Error type: ${error.name || 'Unknown'}</p>
+              <button onclick="loadAllUsers()" style="margin-top:10px; padding:8px 16px; background:var(--accent); color:white; border:none; border-radius:4px; cursor:pointer;">
+                <i class="fas fa-refresh"></i> Retry
+              </button>
+            </div>
+          `;
+        }
+      }
+
+      // Function to send friend request
+      async function sendFriendRequest(targetuserEmail) {
+        try {
+          console.log('🚀 sendFriendRequest called with:', targetuserEmail);
+          console.log('📊 Current state:', { userName, currentUser });
+
+          if (!userName) {
+            console.log('⚠️ userName is null, trying to get current user...');
+            // Try to get current user first
+            const userResponse = await fetch('/api/auth/me');
+            console.log('📡 /api/auth/me response status:', userResponse.status);
+
+            if (userResponse.ok) {
+              const user = await userResponse.json();
+              console.log('✅ Got user data:', user);
+              userName = user.userName;
+              currentUser = user.userEmail;
+            } else {
+              console.log('❌ Failed to get user data:', await userResponse.text());
+              alert('You must be logged in to send friend requests. Please log in first.');
+              return;
+            }
+          }
+
+          console.log('📤 Sending friend request to:', targetuserEmail);
+
+          const response = await fetch('/api/friends/send-request', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ targetUser: targetuserEmail })
+          });
+
+          console.log('📥 Friend request response status:', response.status);
+          const result = await response.json();
+          console.log('📋 Friend request result:', result);
+
+          if (response.ok) {
+            alert(`Friend request sent to ${targetuserEmail}!`);
+            // Optionally reload users to update the UI
+            loadAllUsers();
+          } else {
+            alert(`Failed to send friend request: ${result.error}`);
+            console.log('❌ Friend request failed:', result);
+            if (result.sessionInfo) {
+              console.log('🔍 Session info:', result.sessionInfo);
+            }
+          }
+        } catch (error) {
+          console.error('Error sending friend request:', error);
+          alert('Failed to send friend request. Please try again.');
+        }
+      }
+      // Function to cancel friend request
+      async function cancelFriendRequest(targetuserEmail) {
+        try {
+          console.log('🚀 cancelFriendRequest called with:', targetuserEmail);
+
+          if (!userName) {
+            console.log('⚠️ userName is null, trying to get current user...');
+            const userResponse = await fetch('/api/auth/me');
+            if (userResponse.ok) {
+              const user = await userResponse.json();
+              userName = user.userName;
+              currentUser = user.userEmail;
+            } else {
+              alert('You must be logged in to cancel friend requests.');
+              return;
+            }
+          }
+
+          console.log('📤 Canceling friend request to:', targetuserEmail);
+
+          const response = await fetch('/api/friends/cancel-request', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ targetUser: targetuserEmail })
+          });
+
+          console.log('📥 Cancel friend request response status:', response.status);
+          const result = await response.json();
+          console.log('📋 Cancel friend request result:', result);
+
+          if (response.ok) {
+            alert(`Friend request to ${targetuserEmail} has been canceled.`);
+            // Reload users to update the UI
+            loadAllUsers();
+          } else {
+            alert(`Failed to cancel friend request: ${result.error}`);
+            console.log('❌ Cancel friend request failed:', result);
+          }
+        } catch (error) {
+          console.error('Error canceling friend request:', error);
+          alert('Failed to cancel friend request. Please try again.');
+        }
+      }
+
+      // Function to accept friend request
+      async function acceptFriendRequest(targetuserEmail) {
+        try {
+          console.log('🚀 acceptFriendRequest called with:', targetuserEmail);
+
+          if (!userName) {
+            console.log('⚠️ userName is null, trying to get current user...');
+            const userResponse = await fetch('/api/auth/me');
+            if (userResponse.ok) {
+              const user = await userResponse.json();
+              userName = user.userName;
+              currentUser = user.userEmail;
+            } else {
+              alert('You must be logged in to accept friend requests.');
+              return;
+            }
+          }
+
+          console.log('📤 Accepting friend request from:', targetuserEmail);
+
+          const response = await fetch('/api/friends/accept-request', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ targetUser: targetuserEmail })
+          });
+
+          console.log('📥 Accept friend request response status:', response.status);
+          const result = await response.json();
+          console.log('📋 Accept friend request result:', result);
+
+          if (response.ok) {
+            alert(`Friend request from ${targetuserEmail} has been accepted!`);
+            // Reload users to update the UI
+            loadAllUsers();
+          } else {
+            alert(`Failed to accept friend request: ${result.error}`);
+            console.log('❌ Accept friend request failed:', result);
+          }
+        } catch (error) {
+          console.error('Error accepting friend request:', error);
+          alert('Failed to accept friend request. Please try again.');
+        }
+      }
+
+      // Function to reject friend request
+      async function rejectFriendRequest(targetuserEmail) {
+        try {
+          console.log('🚀 rejectFriendRequest called with:', targetuserEmail);
+
+          if (!userName) {
+            console.log('⚠️ userName is null, trying to get current user...');
+            const userResponse = await fetch('/api/auth/me');
+            if (userResponse.ok) {
+              const user = await userResponse.json();
+              userName = user.userName;
+              currentUser = user.userEmail;
+            } else {
+              alert('You must be logged in to reject friend requests.');
+              return;
+            }
+          }
+
+          console.log('📤 Rejecting friend request from:', targetuserEmail);
+
+          const response = await fetch('/api/friends/reject-request', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ targetUser: targetuserEmail })
+          });
+
+          console.log('📥 Reject friend request response status:', response.status);
+          const result = await response.json();
+          console.log('📋 Reject friend request result:', result);
+
+          if (response.ok) {
+            alert(`Friend request from ${targetuserEmail} has been rejected.`);
+            // Reload users to update the UI
+            loadAllUsers();
+          } else {
+            alert(`Failed to reject friend request: ${result.error}`);
+            console.log('❌ Reject friend request failed:', result);
+          }
+        } catch (error) {
+          console.error('Error rejecting friend request:', error);
+          alert('Failed to reject friend request. Please try again.');
+        }
+      }
+
+      // Fallback mechanism if socket doesn't connect within 5 seconds
+      setTimeout(() => {
+        if (!userName) {
+          console.log('⏰ Socket connection timeout, trying direct load...');
+          loadAllUsers();
+        }
+      }, 5000);
+
+      // Socket event handlers
+      socket.on('connect', async () => {
+        console.log('🔌 Socket connected to server');
+        console.log('📍 Connection timestamp:', new Date().toISOString());
+
+        // Wait a bit to ensure server is fully ready
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Get current user information
+        try {
+          const response = await fetch('/api/auth/me');
+          if (response.ok) {
+            const user = await response.json();
+            userName = user.userName; // Update global variable
+            currentUser = user.userEmail; // Update global variable
+            console.log('✅ Current user:', userName);
+
+            // Auto-load all users on page load
+            console.log('🚀 Auto-loading all users...');
+            loadAllUsers();
+          } else {
+            console.log('ℹ️ User not authenticated, loading users anyway...');
+            // Load users even if not authenticated
+            loadAllUsers();
+          }
+        } catch (error) {
+          console.error('⚠️ Failed to get current user:', error);
+          // Still try to load users
+          loadAllUsers();
+        }
+      });
+
+      // Make functions available globally for onclick handlers
+      window.sendFriendRequest = sendFriendRequest;
+      window.loadAllUsers = loadAllUsers;
+      window.performSearch = performSearch;
+      window.clearSearch = clearSearch;
+      window.showUserDetails = showUserDetails;
+      window.cancelFriendRequest = cancelFriendRequest;
+      window.acceptFriendRequest = acceptFriendRequest;
+      window.rejectFriendRequest = rejectFriendRequest;
+    })();
+  </script>
+</body>
+</html>

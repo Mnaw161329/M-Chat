@@ -1,0 +1,1248 @@
+<!doctype html>
+<html lang="en" style="user-select: none;">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Friends Chat - JSON Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root { --bg:#0f172a; --panel:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#22d3ee; --accent2:#60a5fa; --success:#10b981; --warning:#f59e0b; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: linear-gradient(120deg, #0f172a, #0b1023); color: var(--text); }
+    header { padding:16px 20px; display:flex; gap:12px; align-items:center; border-bottom:1px solid #1f2937; background: rgba(17,24,39,.6); backdrop-filter: blur(6px); position:sticky; top:0; z-index:10; }
+    main { display:grid; grid-template-columns: 280px 1fr; gap:20px; padding:20px; height: calc(100vh - 96px); }
+    .sidebar { background: rgba(17,24,39,.6); border:1px solid #1f2937; border-radius:12px; padding:8px; display:flex; flex-direction:column; gap:8px; width:280px; flex-shrink:0; }
+    .user-list { display:flex; flex-direction:column; gap:8px; overflow:auto; }
+    .user { display:flex; align-items:center; gap:12px; justify-content:space-between; padding:12px 16px; border-radius:16px; border:1px solid #1f2937; cursor:pointer; color:#cbd5e1; background:#0b1220; transition: all 0.2s ease; }
+    .user:hover { background: rgba(34,211,238,.1); border-color:#334155; color:#e5e7eb; }
+    /* .user.updated class removed - no visual changes for updated users */
+
+    @keyframes newMessageGlow {
+      0% {
+        box-shadow: 0 0 0 0 rgba(34,211,238,0.4);
+        transform: scale(1);
+      }
+      50% {
+        box-shadow: 0 0 0 4px rgba(34,211,238,0.2);
+        transform: scale(1.02);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(34,211,238,0);
+        transform: scale(1);
+      }
+    }
+    .user-avatar { width:32px; height:32px; border-radius:50%; background:linear-gradient(120deg, var(--accent), var(--accent2)); display:flex; align-items:center; justify-content:center; font-weight:600; font-size:14px; position:relative; }
+    .status-indicator { position:absolute; bottom:-2px; right:-2px; width:10px; height:10px; border-radius:50%; border:2px solid #0b1220; }
+    .status-indicator.online { background:var(--success); box-shadow:0 0 4px var(--success); }
+    .status-indicator.offline { background:var(--warning); }
+    .unread-indicator { position:absolute; top:-4px; right:-4px; width:12px; height:12px; border-radius:50%; background:#ef4444; border:2px solid #0b1220; display:none; }
+    .unread-indicator.show { display:block; animation: pulse-red 2s infinite; }
+    @keyframes pulse-red {
+      0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); }
+      70% { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+      100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+    }
+    .sidebar-header { margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid #1f2937; min-height:40px; height:40px; display:flex; align-items:center; justify-content:space-between; }
+    .main-title { width:120px; text-align:center; margin:0; font-size:16px; color:var(--accent); }
+
+    .chat { display:grid; grid-template-rows: 60px 1fr 70px; gap:22px; height: calc(100vh - 96px); align-items: stretch; justify-items: stretch; }
+    .topbar { background: rgba(17,24,39,.6); border:1px solid #1f2937; border-radius:12px; display:flex; align-items:center; padding:0 20px; }
+    .topbar h2 { margin:0; font-size:16px; color:var(--accent); display:flex; align-items:center; gap:8px; }
+
+    .messages { background: rgba(17,24,39,.6); border:1px solid #1f2937; border-radius:12px; padding:16px; overflow:auto; display:flex; flex-direction:column; gap:16px; max-height: calc(100vh - 180px); min-height: 420px; }
+    .message-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+    .message-row.me { justify-content:flex-end; }
+    .message-avatar { width:24px; height:24px; border-radius:50%; background:linear-gradient(120deg, var(--accent), var(--accent2)); display:flex; align-items:center; justify-content:center; font-weight:600; font-size:10px; flex-shrink:0; }
+    .msg { width: fit-content; max-width: min(75%, 500px); min-width: 120px; padding:12px 16px; border-radius:12px; border:1px solid #1f2937; background:#0b1220; box-shadow: 0 0 0 1px rgba(255,255,255,.02) inset; display:flex; flex-direction:column; }
+    .msg.me { margin-left:auto; background: linear-gradient(120deg, rgba(34,211,238,.2), rgba(96,165,250,.2)); }
+    .msg.private { border-left:3px solid var(--accent); }
+    .msg .text { white-space: pre-wrap; word-wrap: break-word; margin-bottom:4px; }
+    .msg .bottom-row { display:flex; justify-content:flex-end; align-items:center; margin-top:auto; }
+    .msg .meta { font-size:11px; color:#94a3b8; }
+    .sys { align-self:center; font-size:12px; color:#94a3b8; padding:8px 12px; background:rgba(15,23,42,.6); border:1px dashed #334155; border-radius:999px; margin:8px 0; }
+
+    .composer { display:flex; gap:10px; align-items: center; padding: 0; margin: 0; height: 48px; }
+    .composer input { flex:1; padding:20px 24px; border-radius:12px; border:1px solid #1f2937; background:#0b1220; color:#e5e7eb; height:36px; font-size:14px; line-height:36px; text-align:left; margin-bottom:0; }
+    .composer button { padding:20px 24px; border-radius:12px; border:1px solid #334155; background: linear-gradient(120deg, var(--accent), var(--accent2)); color:#081019; font-weight:700; cursor:pointer; height:36px; font-size:14px; line-height:36px; text-align:center; display:flex; align-items:center; justify-content:center; margin-bottom:0; }
+    .composer button#send { padding:20px 24px; border-radius:12px; border:1px solid #334155; background: linear-gradient(120deg, var(--accent), var(--accent2)); color:#081019; font-weight:700; cursor:pointer; height:36px; font-size:14px; line-height:36px; text-align:center; display:flex; align-items:center; justify-content:center; }
+    .composer button#createRoom { background:none; border:none; color:var(--accent); cursor:pointer; padding:0; margin:0; width:32px; height:32px; display:flex; align-items:center; justify-content:center; }
+
+    .auth-container { max-width:450px; margin:100px auto; padding:40px; background: rgba(17,24,39,.8); border:1px solid #1f2937; border-radius:16px; backdrop-filter: blur(8px); }
+    .auth-form { display:flex; flex-direction:column; gap:20px; }
+    .auth-form h2 { margin:0 0 24px 0; text-align:center; color:#e5e7eb; }
+    .auth-form input { padding:14px 18px; border-radius:12px; border:1px solid #1f2937; background:#0b1220; color:#e5e7eb; font-size:14px; }
+    .auth-form input:focus { outline:none; border-color:#22d3ee; box-shadow:0 0 0 2px rgba(34,211,238,.2); }
+    .auth-form button { padding:14px 18px; border-radius:12px; border:1px solid #334155; background: linear-gradient(120deg, var(--accent), var(--accent2)); color:#081019; font-weight:600; cursor:pointer; margin-top:8px; }
+    .auth-form .error { color:#ef4444; font-size:12px; margin-top:4px; }
+    .auth-form .link { color:#22d3ee; cursor:pointer; text-decoration:none; font-size:14px; text-align:center; margin-top:16px; }
+    .auth-form .link:hover { text-decoration:underline; }
+    .hidden { display: none !important; }
+
+    .welcome-message { text-align:center; color:var(--muted); padding:40px; }
+    .welcome-message i { font-size:48px; margin-bottom:16px; opacity:0.5; }
+    .user-details { display:flex; align-items:center; justify-content:flex-start; width:100%; }
+    .user-info { display:flex; align-items:center; flex:1; }
+    .user-name { font-weight:600; color:#e5e7eb; font-size:15px; }
+    .friends-list { display:flex; flex-direction:column; gap:8px; overflow:auto; }
+
+    /* Menu Card Styles */
+    .menu-card {
+      position: fixed;
+      top: 60px;
+      right: 20px;
+      width: 280px;
+      background: rgba(17,24,39,0.95);
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      z-index: 1000;
+      display: none;
+      animation: slideInRight 0.2s ease-out;
+    }
+
+    .menu-card.show {
+      display: block;
+    }
+
+    @keyframes slideInRight {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .menu-header {
+      padding: 20px;
+      border-bottom: 1px solid #1f2937;
+      text-align: center;
+    }
+
+    .menu-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(120deg, var(--accent), var(--accent2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 18px;
+      margin: 0 auto 12px auto;
+    }
+
+    .menu-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e5e7eb;
+      margin: 0 0 4px 0;
+    }
+
+    .menu-email {
+      font-size: 12px;
+      color: var(--muted);
+      margin: 0 0 8px 0;
+      user-select: none;
+    }
+
+    .menu-id {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: monospace;
+      background: rgba(34,211,238,0.1);
+      padding: 4px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      cursor: pointer;
+      user-select: text;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .menu-id:hover {
+      background: rgba(34,211,238,0.2);
+      border-color: var(--accent2);
+      color: var(--accent2);
+      transform: scale(1.02);
+    }
+
+    .menu-id.copied {
+      background: var(--success);
+      color: white;
+      border-color: var(--success);
+    }
+
+    .menu-content {
+      padding: 16px;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 8px;
+    }
+
+    .menu-item:hover {
+      background: rgba(34,211,238,0.1);
+    }
+
+    .menu-item-icon {
+      width: 20px;
+      height: 20px;
+      color: var(--accent2);
+    }
+
+    .menu-item-text {
+      flex: 1;
+      font-size: 14px;
+      color: #e5e7eb;
+    }
+
+    .menu-item-right {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .menu-divider {
+      height: 1px;
+      background: #1f2937;
+      margin: 12px 0;
+    }
+
+    .theme-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .theme-toggle:hover {
+      background: rgba(34,211,238,0.1);
+    }
+
+    .theme-text {
+      font-size: 14px;
+      color: #e5e7eb;
+    }
+
+    .theme-indicator {
+      width: 24px;
+      height: 14px;
+      border-radius: 7px;
+      background: #1f2937;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .theme-indicator.active {
+      background: var(--accent);
+    }
+
+    .theme-indicator::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #e5e7eb;
+      transition: all 0.2s ease;
+      transform: translateX(0);
+    }
+
+    .theme-indicator.active::after {
+      transform: translateX(10px);
+      background: #081019;
+    }
+
+    .logout-btn {
+      background: rgba(239,68,68,0.2);
+      color: #fca5a5;
+      border: 1px solid rgba(239,68,68,0.3);
+    }
+
+    .logout-btn:hover {
+      background: rgba(239,68,68,0.3);
+    }
+
+    .menu-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.3);
+      z-index: 999;
+      display: none;
+    }
+
+    .menu-overlay.show {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div style="font-size:18px; font-weight:600; color:var(--accent); margin-right:12px;">JSON Chat</div>
+    <a href="/group" style="color:var(--accent2); text-decoration:none; font-size:14px; margin-left:auto;">
+      Group Chat <i class="fas fa-exchange-alt"></i>
+    </a>
+    <a href="/notification" style="color:var(--accent2); text-decoration:none; font-size:14px; margin-left:12px; padding:6px 8px; border-radius:6px; transition: all 0.2s ease; position: relative;" title="Notifications">
+      <i class="fas fa-bell"></i>
+      <span id="notificationBadge" style="position: absolute; top: 4px; right: 4px; background: #ef4444; color: transparent; border-radius: 50%; width: 4px; height: 4px; display: none; font-size: 10px; line-height: 1;"></span>
+    </a>
+    <a href="#" id="menuBtn" style="color:var(--muted); text-decoration:none; font-size:14px; margin-left:8px; padding:6px 8px; border-radius:6px; transition: all 0.2s ease;" title="Menu">
+      <i class="fas fa-bars"></i>
+    </a>
+  </header>
+
+  <!-- Menu Overlay -->
+  <div id="menuOverlay" class="menu-overlay"></div>
+
+  <!-- Menu Card -->
+  <div id="menuCard" class="menu-card">
+    <div class="menu-header">
+      <div id="menuAvatar" class="menu-avatar">U</div>
+      <div id="menuName" class="menu-name">User Name</div>
+      <div id="menuEmail" class="menu-email">user@example.com</div>
+      <div id="menuId" class="menu-id">ID: 12345</div>
+    </div>
+    <div class="menu-content">
+      <div class="theme-toggle" id="themeToggle">
+        <span class="theme-text">Dark Theme</span>
+        <div id="themeIndicator" class="theme-indicator active"></div>
+      </div>
+
+      <div class="menu-divider"></div>
+
+      <div class="menu-item" id="profileBtn">
+        <i class="fas fa-user menu-item-icon"></i>
+        <span class="menu-item-text">Profile Settings</span>
+        <i class="fas fa-chevron-right menu-item-right"></i>
+      </div>
+
+      <div class="menu-item" id="privacyBtn">
+        <i class="fas fa-lock menu-item-icon"></i>
+        <span class="menu-item-text">Privacy</span>
+        <i class="fas fa-chevron-right menu-item-right"></i>
+      </div>
+
+      <div class="menu-item" id="helpBtn">
+        <i class="fas fa-question-circle menu-item-icon"></i>
+        <span class="menu-item-text">Help & Support</span>
+        <i class="fas fa-chevron-right menu-item-right"></i>
+      </div>
+
+      <div class="menu-divider"></div>
+
+      <div class="menu-item logout-btn" id="logoutBtn">
+        <i class="fas fa-sign-out-alt menu-item-icon"></i>
+        <span class="menu-item-text">Logout</span>
+      </div>
+    </div>
+  </div>
+
+  <main>
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1 class="main-title">PRIVATE CHAT</h1>
+        <a href="/addFriends" style="color:var(--accent2); text-decoration:none; font-size:14px; margin-left:8px; padding:6px 8px; border-radius:6px; transition: all 0.2s ease; margin-left:auto; margin-right:3px;" title="Add Friends">
+          <i class="fas fa-plus"></i>
+        </a>
+      </div>
+      <div style="margin-bottom:8px;">
+        <input type="text" id="friendSearch" placeholder="Search friends..." style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid #1f2937; background:#0b1220; color:#e5e7eb; font-size:14px; margin-bottom:4px;" />
+        <div class="friends-list" id="friends"></div>
+      </div>
+    </aside>
+
+    <section class="chat">
+      <div class="topbar">
+        <h2 id="chatWith">
+          Select a user to start chatting
+        </h2>
+      </div>
+      <div class="messages" id="messages">
+        <div class="welcome-message">
+          <h3>Private Chat with Friends</h3>
+          <p>Chat privately with your friends. All your connected friends are displayed below.</p>
+          <p>Use the search box to find specific friends or click on any friend to start a private conversation.</p>
+        </div>
+      </div>
+      <div class="composer">
+        <input type="text" id="input" placeholder="Type your message..."  />
+        <button id="send" ><i class="fas fa-paper-plane"></i></button>
+      </div>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    (() => {
+      const socket = io();
+      const friendSearchEl = document.getElementById('friendSearch');
+      const friendsEl = document.getElementById('friends');
+      let allUsers = []; // Store all users for filtering
+      const chatWithEl = document.getElementById('chatWith');
+      const messagesEl = document.getElementById('messages');
+      const inputEl = document.getElementById('input');
+      const sendBtn = document.getElementById('send');
+
+      let currentUser = null;
+      let userName = null;
+      let targetUser = null;
+      let typingTimer = null;
+      let menuOpen = false;
+
+      // Menu functionality
+      const menuBtn = document.getElementById('menuBtn');
+      const menuCard = document.getElementById('menuCard');
+      const menuOverlay = document.getElementById('menuOverlay');
+      const themeToggle = document.getElementById('themeToggle');
+      const themeIndicator = document.getElementById('themeIndicator');
+      const themeText = document.querySelector('.theme-text');
+      const logoutBtn = document.getElementById('logoutBtn');
+      const profileBtn = document.getElementById('profileBtn');
+      const privacyBtn = document.getElementById('privacyBtn');
+      const helpBtn = document.getElementById('helpBtn');
+      const menuEmail = document.getElementById('menuEmail');
+      const menuId = document.getElementById('menuId');
+
+      function getUserAvatar(name) {
+        return name.charAt(0).toUpperCase();
+      }
+
+      function getNameFromEmail(email) {
+        if (!email) return 'Unknown';
+        // Extract name from email (part before @)
+        const name = email.split('@')[0];
+        // Capitalize first letter and handle common patterns
+        return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+      }
+
+      function addSystem(text) {
+        const div = document.createElement('div');
+        div.className = 'sys';
+        div.textContent = text;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      // Menu Functions
+      function toggleMenu() {
+        menuOpen = !menuOpen;
+        if (menuOpen) {
+          showMenu();
+        } else {
+          hideMenu();
+        }
+      }
+
+      function showMenu() {
+        menuCard.classList.add('show');
+        menuOverlay.classList.add('show');
+        menuOpen = true;
+      }
+
+      function hideMenu() {
+        menuCard.classList.remove('show');
+        menuOverlay.classList.remove('show');
+        menuOpen = false;
+      }
+
+      function updateUserInfo() {
+        if (userName && currentUser) {
+          document.getElementById('menuAvatar').textContent = getUserAvatar(userName);
+          document.getElementById('menuName').textContent = userName;
+          document.getElementById('menuEmail').textContent = currentUser;
+
+          // Get actual user ID from auth data
+          fetch('/api/auth/me', { credentials: 'include' })
+            .then(response => response.json())
+            .then(user => {
+              if (user.userId) {
+                const userId = user.userId;
+                document.getElementById('menuId').textContent = userId;
+
+                // Add copy functionality for ID
+                menuId.addEventListener('click', () => copyToClipboard(userId, 'ID'));
+              }
+            })
+            .catch(error => {
+              console.log('Could not fetch user ID, using fallback');
+              document.getElementById('menuId').textContent = `ID: ${userName.toLowerCase()}`;
+            });
+
+          // Add copy functionality for email
+          // menuEmail.addEventListener('click', () => copyToClipboard(currentUser, 'Email'));
+        }
+      }
+
+      function copyToClipboard(text, type) {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(text).then(() => {
+            showCopyFeedback(type);
+          }).catch(err => {
+            console.error('Failed to copy: ', err);
+            fallbackCopyTextToClipboard(text, type);
+          });
+        } else {
+          fallbackCopyTextToClipboard(text, type);
+        }
+      }
+
+      function fallbackCopyTextToClipboard(text, type) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.top = '0';
+        textArea.style.left = '0';
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            showCopyFeedback(type);
+          } else {
+            console.error('Fallback: Unable to copy');
+          }
+        } catch (err) {
+          console.error('Fallback: Unable to copy', err);
+        }
+
+        document.body.removeChild(textArea);
+      }
+
+      function showCopyFeedback(type) {
+        const originalText = menuId.textContent;
+        menuId.textContent = 'Copied!';
+        menuId.classList.add('copied');
+
+        setTimeout(() => {
+          menuId.textContent = originalText;
+          menuId.classList.remove('copied');
+        }, 1500);
+      }
+
+      function toggleTheme() {
+        const isDark = themeIndicator.classList.contains('active');
+        if (isDark) {
+          // Switch to light theme
+          document.documentElement.style.setProperty('--bg', '#f8fafc');
+          document.documentElement.style.setProperty('--panel', '#ffffff');
+          document.documentElement.style.setProperty('--muted', '#64748b');
+          document.documentElement.style.setProperty('--text', '#1e293b');
+          document.documentElement.style.setProperty('--accent', '#0ea5e9');
+          document.documentElement.style.setProperty('--accent2', '#3b82f6');
+          themeIndicator.classList.remove('active');
+          themeText.textContent = 'Light Theme';
+        } else {
+          // Switch to dark theme
+          document.documentElement.style.setProperty('--bg', '#0f172a');
+          document.documentElement.style.setProperty('--panel', '#111827');
+          document.documentElement.style.setProperty('--muted', '#94a3b8');
+          document.documentElement.style.setProperty('--text', '#e5e7eb');
+          document.documentElement.style.setProperty('--accent', '#22d3ee');
+          document.documentElement.style.setProperty('--accent2', '#60a5fa');
+          themeIndicator.classList.add('active');
+          themeText.textContent = 'Dark Theme';
+        }
+      }
+
+      async function handleLogout() {
+        try {
+          const response = await fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'include'
+          });
+
+          if (response.ok) {
+            window.location.href = '/';
+          } else {
+            alert('Logout failed. Please try again.');
+          }
+        } catch (error) {
+          console.error('Logout error:', error);
+          alert('Logout failed. Please try again.');
+        }
+      }
+
+      // Notification functionality
+      function requestNotificationPermission() {
+        if ('Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
+      }
+
+      function showNotification(title, body, icon = '/favicon.ico') {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          const notification = new Notification(title, {
+            body: body,
+            icon: icon,
+            badge: icon,
+            tag: 'chat-message',
+            requireInteraction: false,
+            silent: false
+          });
+
+          // Auto-close notification after 4 seconds
+          setTimeout(() => {
+            notification.close();
+          }, 4000);
+
+          // Focus window when notification is clicked
+          notification.onclick = () => {
+            window.focus();
+            notification.close();
+          };
+        }
+      }
+
+      // Periodic message checking (every 15 seconds)
+      let messageCheckInterval = null;
+
+      function startMessageChecking() {
+        if (messageCheckInterval) return; // Already running
+        
+        messageCheckInterval = setInterval(async () => {
+          // Only check when page is visible to avoid unnecessary requests
+          if (document.visibilityState === 'hidden') return;
+          
+          try {
+            console.log('🔍 Checking for new messages...');
+            
+            // Refresh friends list to get latest message counts
+            if (allUsers.length > 0) {
+              // Get current user information
+              const authResponse = await fetch('/api/auth/me', {
+                credentials: 'include'
+              });
+              
+              if (authResponse.ok) {
+                const user = await authResponse.json();
+                const currentUserEmail = user.userEmail;
+                
+                // Load latest user data
+                const response = await fetch('/api/authdata', {
+                  credentials: 'include'
+                });
+                
+                if (response.ok) {
+                  const data = await response.json();
+                  const currentUserData = data.data.users.find(u => u.userEmail === currentUserEmail);
+                  
+                  if (currentUserData && currentUserData.friends) {
+                    // Update local allUsers with latest message counts
+                    currentUserData.friends.forEach(friend => {
+                      const localUser = allUsers.find(u => u.userEmail === friend.friendEmail);
+                      if (localUser) {
+                        const oldMessageCount = localUser.messages ? localUser.messages.length : 0;
+                        const newMessageCount = friend.messages ? friend.messages.length : 0;
+                        
+                        if (newMessageCount > oldMessageCount) {
+                          console.log(`📬 Found ${newMessageCount - oldMessageCount} new messages from ${friend.friendEmail}`);
+                          
+                          // Check if any of the new messages are RECEIVED (not sent by current user)
+                          const latestMessages = friend.messages.slice(oldMessageCount);
+                          const hasReceivedMessages = latestMessages.some(msg => msg.status === 'received');
+                          
+                          if (hasReceivedMessages) {
+                            // Update local user data with server messages
+                            localUser.messages = [...friend.messages];
+                            localUser.hasUnread = true;
+                            console.log(`🔴 Marked ${friend.friendEmail} as having unread messages`);
+                            
+                            // Move this chat to the top of the unread section (but maintain unread priority)
+                            const friendIndex = allUsers.findIndex(u => u.userEmail === friend.friendEmail);
+                            if (friendIndex > 0) {
+                              const friendToMove = allUsers.splice(friendIndex, 1)[0];
+                              
+                              // Find the first read chat (or end of unread chats) to insert before
+                              let insertIndex = 0;
+                              for (let i = 0; i < allUsers.length; i++) {
+                                if (!allUsers[i].hasUnread) {
+                                  insertIndex = i;
+                                  break;
+                                }
+                                insertIndex = i + 1;
+                              }
+                              
+                              allUsers.splice(insertIndex, 0, friendToMove);
+                              console.log(`📈 Moved ${friend.friendEmail} to top of unread section`);
+                            }
+                            
+                            // Update the friends list to show the red dot and new order
+                            renderAllUsers(allUsers);
+                          } else {
+                            // Update local messages even if they're sent messages
+                            localUser.messages = [...friend.messages];
+                            console.log('ℹ️ Updated local messages but they are sent messages, not marking as unread');
+                          }
+                        } else if (newMessageCount < oldMessageCount) {
+                          // Server has fewer messages than local - sync local with server
+                          localUser.messages = [...friend.messages];
+                          console.log('🔄 Synced local messages with server (server had fewer messages)');
+                        }
+                      }
+                    });
+                    
+                    // Refresh the friends list to show updated order
+                    renderAllUsers(allUsers);
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error('❌ Error checking for new messages:', error);
+          }
+        }, 2000); // Check every 2 seconds
+      }
+
+      function stopMessageChecking() {
+        if (messageCheckInterval) {
+          clearInterval(messageCheckInterval);
+          messageCheckInterval = null;
+          console.log('⏹️ Stopped message checking');
+        }
+      }
+
+      // Start message checking when users are loaded
+      const originalLoadAllUsers = loadAllUsers;
+      loadAllUsers = async function() {
+        await originalLoadAllUsers();
+        startMessageChecking();
+      };
+
+      function addMessage(msg, isMe = false) {
+        // Create message row container
+        const messageRow = document.createElement('div');
+        messageRow.className = 'message-row' + (isMe ? ' me' : '');
+
+        // Create user avatar
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        
+        // Get the sender's name for avatar
+        const senderName = isMe ? userName : (msg.sender ? msg.sender.split('@')[0] : targetUser.split('@')[0]);
+        avatar.textContent = getUserAvatar(senderName);
+        
+        // Create message bubble
+        const wrap = document.createElement('div');
+        wrap.className = 'msg' + (isMe ? ' me' : '');
+
+        const body = document.createElement('div');
+        body.className = 'text';
+        body.textContent = msg.text;
+
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+
+        // Handle timestamp properly - convert to Date object safely
+        let when = 'Just now';
+        try {
+          if (msg.timestamp) {
+            const timestamp = typeof msg.timestamp === 'string' ? msg.timestamp : new Date(msg.timestamp).toISOString();
+            const date = new Date(timestamp);
+            when = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          } else if (msg.ts) {
+            // Handle optimistic messages with numeric timestamp
+            const date = new Date(msg.ts);
+            when = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          }
+        } catch (error) {
+          console.warn('Invalid timestamp:', msg.timestamp || msg.ts);
+          when = 'Just now';
+        }
+
+        meta.textContent = `${when}`;
+
+        wrap.appendChild(body);
+        wrap.appendChild(meta);
+        
+        // Add avatar and message to row
+        if (isMe) {
+          messageRow.appendChild(wrap);
+          messageRow.appendChild(avatar);
+        } else {
+          messageRow.appendChild(avatar);
+          messageRow.appendChild(wrap);
+        }
+        
+        messagesEl.appendChild(messageRow);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function filterUsers(searchTerm) {
+        if (!searchTerm.trim()) {
+          renderAllUsers(allUsers);
+          return;
+        }
+
+        const filtered = allUsers.filter(user => {
+          const name = (user.userName || '').toLowerCase();
+          const userEmail = (user.userEmail || '').toLowerCase();
+          const search = searchTerm.toLowerCase();
+          return name.includes(search) || userEmail.includes(search);
+        });
+
+        renderAllUsers(filtered);
+      }
+
+      async function loadAllUsers() {
+        try {
+          // Get current user information first
+          const authResponse = await fetch('/api/auth/me', {
+            credentials: 'include' // Include cookies in the request
+          });
+
+          if (!authResponse.ok) {
+            throw new Error(`Authentication error: ${authResponse.status}`);
+          }
+
+          const user = await authResponse.json();
+          userName = user.userName;
+          currentUser = user.userEmail;
+
+          // Load user data from authData.json to get friends list for current user
+          const response = await fetch('/api/authdata', {
+            credentials: 'include' // Include cookies in the request
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          // Find current user in authData
+          const currentUserData = data.data.users.find(u => u.userEmail === currentUser);
+
+          if (currentUserData && currentUserData.friends) {
+            // Get all users to create a lookup map for usernames
+            const allUsersMap = {};
+            data.data.users.forEach(u => {
+              allUsersMap[u.userEmail] = u.userName;
+            });
+
+            allUsers = currentUserData.friends.map(friend => ({
+              userEmail: friend.friendEmail,
+              userName: allUsersMap[friend.friendEmail] || getNameFromEmail(friend.friendEmail), // Use stored username or fallback
+              online: friend.online || false,
+              messages: friend.messages || [],
+              hasUnread: false // Track unread messages
+            }));
+          } else {
+            allUsers = [];
+          }
+
+          console.log(`✅ Loaded ${allUsers.length} friends for ${currentUser}`);
+          renderAllUsers(allUsers);
+          updateUserInfo(); // Update menu with user information
+
+          // Check if we should auto-open a specific chat (from page refresh)
+          const autoOpenChatEmail = sessionStorage.getItem('autoOpenChat');
+
+          // Auto-open the most recent chat if no specific chat is requested
+          if (allUsers.length > 0 && !autoOpenChatEmail && !userId && !userEmail) {
+            // Find the friend with the most recent message
+            let mostRecentFriend = null;
+            let mostRecentTime = new Date(0);
+            
+            allUsers.forEach(friend => {
+              if (friend.messages && friend.messages.length > 0) {
+                const latestMessageTime = new Date(Math.max(...friend.messages.map(msg => new Date(msg.timestamp))));
+                if (latestMessageTime > mostRecentTime) {
+                  mostRecentTime = latestMessageTime;
+                  mostRecentFriend = friend;
+                }
+              }
+            });
+            
+            if (mostRecentFriend) {
+              console.log(`🚀 Auto-opening most recent chat with ${mostRecentFriend.userName}`);
+              startPrivateChat(mostRecentFriend.userEmail);
+            }
+          }
+
+          // Handle auto-open from page refresh
+          if (autoOpenChatEmail) {
+            console.log(`🚀 Auto-opening chat with ${autoOpenChatEmail}`);
+            sessionStorage.removeItem('autoOpenChat'); // Clear it after use
+            
+            const targetUserForAutoOpen = allUsers.find(user => user.userEmail === autoOpenChatEmail);
+            if (targetUserForAutoOpen) {
+              console.log('Found target user for auto-open:', targetUserForAutoOpen.userName);
+              startPrivateChat(targetUserForAutoOpen.userEmail);
+            } else {
+              console.log('Target user not found in friends list for auto-open');
+            }
+          }
+
+          // If we have user ID and email from URL, find and select that user
+          if (userId && userEmail) {
+            const targetUser = allUsers.find(user => user.userEmail === userEmail || user.userId === userId);
+            if (targetUser) {
+              console.log('Found target user:', targetUser.userName);
+              startPrivateChat(targetUser.userEmail);
+            } else {
+              console.log('Target user not found in friends list');
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load friends:', error);
+          friendsEl.innerHTML = `
+            <div style="text-align:center; color:var(--muted); padding:20px;">
+              <i class="fas fa-exclamation-triangle" style="font-size:24px; margin-bottom:8px;"></i>
+              <p>Failed to load friends: ${error.message}</p>
+              <p>Please try again or contact support if the problem persists.</p>
+            </div>
+          `;
+        }
+      }
+
+      function renderAllUsers(users) {
+        friendsEl.innerHTML = '';
+        if (users.length === 0) {
+          friendsEl.innerHTML = `
+            <div style="text-align:center; color:var(--muted); padding:20px;">
+              <p style="margin:0; display:inline; font-size:16px;">No Friends.</p>
+              <a href="/addFriends" style="color:var(--accent2); text-decoration:none; font-size:14px; margin-left:4px;">Find</a>
+            </div>
+          `;
+          return;
+        }
+
+        // Sort users: unread chats first (by latest message), then read chats (by latest message)
+        const sortedUsers = users
+          .filter(user => user.userName !== userName) // Don't show current user
+          .sort((a, b) => {
+            // Prioritize unread chats to the top
+            if (a.hasUnread && !b.hasUnread) return -1;
+            if (!a.hasUnread && b.hasUnread) return 1;
+            
+            // If both have same unread status, sort by latest message timestamp
+            const aLatest = a.messages && a.messages.length > 0
+              ? new Date(Math.max(...a.messages.map(msg => new Date(msg.timestamp))))
+              : new Date(0);
+            const bLatest = b.messages && b.messages.length > 0
+              ? new Date(Math.max(...b.messages.map(msg => new Date(msg.timestamp))))
+              : new Date(0);
+            return bLatest - aLatest; // Most recent first
+          });
+
+        sortedUsers.forEach((user) => {
+          const userEl = document.createElement('div');
+          const hasNewMessages = user.userEmail === targetUser && user.messages && user.messages.length > 0;
+          userEl.className = 'user' + (user.online ? ' user-online' : ' user-offline');
+          userEl.innerHTML = `
+            <div class="user-avatar">${getUserAvatar(user.userName || user.userName)}<div class="status-indicator ${user.online ? 'online' : 'offline'}"></div><div class="unread-indicator ${user.hasUnread ? 'show' : ''}"></div></div>
+            <div class="user-info">
+              <div class="user-name">${user.userName || user.userName}</div>
+            </div>
+          `;
+          userEl.onclick = () => startPrivateChat(user.userEmail);
+          friendsEl.appendChild(userEl);
+        });
+      }
+
+      function startPrivateChat(targetUserEmail) {
+        if (targetUserEmail === currentUser) return;
+        targetUser = targetUserEmail;
+
+        // Clear unread indicator for this chat
+        const friend = allUsers.find(user => user.userEmail === targetUserEmail);
+        if (friend) {
+          friend.hasUnread = false;
+          // Force UI update to remove red dot
+          const userElements = friendsEl.querySelectorAll('.user');
+          userElements.forEach(el => {
+            const email = el.querySelector('.user-name').textContent;
+            if (email === (friend.userName || friend.userEmail)) {
+              const unreadIndicator = el.querySelector('.unread-indicator');
+              if (unreadIndicator) {
+                unreadIndicator.classList.remove('show');
+              }
+            }
+          });
+        }
+
+        // Find the friend's name from the friends list or extract from email
+        const friendName = friend ? friend.userName : getNameFromEmail(targetUserEmail);
+
+        chatWithEl.innerHTML = `
+          ${friendName}
+        `;
+        messagesEl.innerHTML = `
+          <div class="welcome-message">
+            <p>Private conversation with ${friendName}</p>
+            <p>Messages are encrypted and private.</p>
+          </div>
+        `;
+
+        // Load and display message history from authData
+        if (friend && friend.messages) {
+          messagesEl.innerHTML = ''; // Clear welcome message
+          friend.messages.forEach(msg => {
+            const isMe = msg.status === 'sent';
+            addMessage(msg, isMe);
+          });
+        }
+
+        inputEl.disabled = false;
+        sendBtn.disabled = false;
+        socket.emit('joinPrivate', targetUser);
+      }
+
+      function sendMessage() {
+        const text = inputEl.value.trim();
+        if (!text || !targetUser) return;
+        socket.emit('privateMessage', { to: targetUser, text });
+        inputEl.value = '';
+        
+        // Add optimistic message with proper timestamp format
+        const now = new Date();
+        const message = {
+          text,
+          sender: currentUser,
+          timestamp: now.toISOString(),
+          status: 'sent'
+        };
+        addMessage(message, true);
+        
+        // Update the allUsers array with the new message
+        const friend = allUsers.find(user => user.userEmail === targetUser);
+        if (friend) {
+          if (!friend.messages) friend.messages = [];
+          friend.messages.push(message);
+          // Refresh friends list to move this conversation to top
+          renderAllUsers(allUsers);
+        }
+      }
+
+      // Get URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const userId = urlParams.get('id');
+      const userEmail = urlParams.get('email');
+
+      // Socket event handlers
+      socket.on('connect', () => {
+        console.log('Connected to server');
+        // loadAllUsers() is called separately after DOM is ready
+      });
+
+      socket.on('disconnect', () => {
+        // Connection lost - could add visual indicator here if needed
+      });
+
+      socket.on('userList', (users) => {
+        // This event is not used for friends - keeping for compatibility
+      });
+
+      socket.on('userOnline', (user) => {
+        console.log('User online:', user);
+        // Update the friends list to show online status
+        if (allUsers.length > 0) {
+          const userIndex = allUsers.findIndex(u => u.userEmail === user);
+          if (userIndex !== -1) {
+            allUsers[userIndex].online = true;
+            renderAllUsers(allUsers);
+          }
+        }
+      });
+
+      socket.on('userOffline', (user) => {
+        console.log('User offline:', user);
+        // Update the friends list to show offline status
+        if (allUsers.length > 0) {
+          const userIndex = allUsers.findIndex(u => u.userEmail === user);
+          if (userIndex !== -1) {
+            allUsers[userIndex].online = false;
+            renderAllUsers(allUsers);
+          }
+        }
+      });
+
+      socket.on('system', (msg) => {
+        // System messages disabled
+      });
+
+      socket.on('privateMessage', (msg) => {
+        // Check if this message is for the current chat
+        if (msg.to === currentUser || msg.sender === currentUser) {
+          const isMe = msg.sender === currentUser;
+          
+          // Only add to UI if this is the current chat
+          if (msg.sender === targetUser || msg.to === targetUser) {
+            addMessage(msg, isMe);
+          }
+          
+          // Update the allUsers array with the received message
+          const friend = allUsers.find(user => user.userEmail === (isMe ? msg.to : msg.sender));
+          if (friend) {
+            if (!friend.messages) friend.messages = [];
+            friend.messages.push(msg);
+            
+            // Mark as unread if this is a received message and not the current chat
+            if (!isMe && msg.sender !== targetUser) {
+              friend.hasUnread = true;
+              console.log(`🔴 Marked ${msg.sender} as having unread messages`);
+              
+              // Move this chat to the top of the unread section (but maintain unread priority)
+              const friendIndex = allUsers.findIndex(u => u.userEmail === msg.sender);
+              if (friendIndex > 0) {
+                const friendToMove = allUsers.splice(friendIndex, 1)[0];
+                
+                // Find the first read chat (or end of unread chats) to insert before
+                let insertIndex = 0;
+                for (let i = 0; i < allUsers.length; i++) {
+                  if (!allUsers[i].hasUnread) {
+                    insertIndex = i;
+                    break;
+                  }
+                  insertIndex = i + 1;
+                }
+                
+                allUsers.splice(insertIndex, 0, friendToMove);
+                console.log(`📈 Moved ${msg.sender} to top of unread section`);
+              }
+            }
+          }
+          
+          // Show notification for received messages (not sent by current user)
+          if (!isMe && document.hidden) {
+            const senderName = msg.sender.split('@')[0];
+            showNotification(`New message from ${senderName}`, msg.text);
+          }
+        }
+      });
+
+      socket.on('privateHistory', (msgs) => {
+        messagesEl.innerHTML = '';
+        (msgs || []).forEach((msg) => {
+          const isMe = msg.status === 'sent';
+          addMessage(msg, isMe);
+        });
+      });
+
+      // Typing indicator (optional)
+      inputEl.addEventListener('input', () => {
+        if (targetUser) {
+          socket.emit('typing', { to: targetUser, typing: true });
+          clearTimeout(typingTimer);
+          typingTimer = setTimeout(() => {
+            socket.emit('typing', { to: targetUser, typing: false });
+          }, 1000);
+        }
+      });
+
+      // Event listeners
+      sendBtn.addEventListener('click', sendMessage);
+      inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendMessage();
+      });
+
+      // Search functionality
+      friendSearchEl.addEventListener('input', (e) => {
+        filterUsers(e.target.value);
+      });
+
+      friendSearchEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          friendSearchEl.value = '';
+          filterUsers('');
+          friendSearchEl.blur();
+        }
+      });
+
+      // Menu Event Listeners
+      menuBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        toggleMenu();
+      });
+
+      menuOverlay.addEventListener('click', hideMenu);
+
+      themeToggle.addEventListener('click', toggleTheme);
+
+      logoutBtn.addEventListener('click', handleLogout);
+
+      profileBtn.addEventListener('click', () => {
+        showAlert('Profile Settings - Coming Soon!');
+        hideMenu();
+      });
+
+      privacyBtn.addEventListener('click', () => {
+        showAlert('Privacy Settings - Coming Soon!');
+        hideMenu();
+      });
+
+      helpBtn.addEventListener('click', () => {
+        showAlert('Help & Support - Coming Soon!');
+        hideMenu();
+      });
+
+      // Handle page visibility changes
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          // Request notification permission when page becomes visible
+          requestNotificationPermission();
+          // Restart message checking if we have users loaded
+          if (allUsers.length > 0) {
+            startMessageChecking();
+          }
+        } else {
+          // Stop message checking when page becomes hidden
+          stopMessageChecking();
+        }
+      });
+
+      // Load all users on page load
+      loadAllUsers();
+
+      // Notification badge functionality
+      async function updateNotificationBadge() {
+        try {
+          const response = await fetch('/api/notifications', {
+            credentials: 'include'
+          });
+          const data = await response.json();
+          const badge = document.getElementById('notificationBadge');
+          const unreadNotifications = (data.notifications || []).filter(n => !n.read);
+
+          if (unreadNotifications.length > 0) {
+            badge.style.display = 'block';
+            badge.textContent = unreadNotifications.length > 9 ? '9+' : unreadNotifications.length;
+          } else {
+            badge.style.display = 'none';
+          }
+        } catch (error) {
+          console.error('Failed to update notification badge:', error);
+        }
+      }
+
+      // Update badge on page load
+      setTimeout(updateNotificationBadge, 1000); // Delay to ensure auth is loaded
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en" style="user-select: none;">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notifications - JSON Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root { --bg:#0f172a; --panel:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#22d3ee; --accent2:#60a5fa; --success:#10b981; --warning:#f59e0b; --danger:#ef4444; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: linear-gradient(120deg, #0f172a, #0b1023); color: var(--text); }
+    header { padding:16px 20px; display:flex; gap:12px; align-items:center; border-bottom:1px solid #1f2937; background: rgba(17,24,39,.6); backdrop-filter: blur(6px); position:sticky; top:0; z-index:10; }
+    header a { color:var(--accent); text-decoration:none; font-size:14px; padding:6px 8px; border-radius:6px; transition: all 0.2s ease; }
+    header a:hover { background: rgba(34,211,238,.1); }
+    main { display:grid; grid-template-columns: 1fr; gap:20px; padding:20px; max-width:1200px; margin:0 auto; min-height: calc(100vh - 96px); }
+    .notification-section { background: rgba(17,24,39,.6); border:1px solid #1f2937; border-radius:12px; padding:20px; }
+    .notification-list { display:flex; flex-direction:column; gap:12px; max-height:600px; overflow:auto; }
+    .notification-item { display:flex; align-items:center; gap:16px; padding:16px; border-radius:10px; border:1px solid #1f2937; background:#0b1220; transition: all 0.2s ease; }
+    .notification-item:hover { background: rgba(34,211,238,.1); border-color:#334155; }
+    .notification-icon { width:40px; height:40px; border-radius:50%; background:linear-gradient(120deg, var(--accent), var(--accent2)); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+    .notification-content { flex:1; }
+    .notification-content h4 { margin:0 0 4px 0; font-size:14px; color:#e5e7eb; }
+    .notification-content p { margin:0 0 8px 0; font-size:13px; color:var(--muted); }
+    .notification-time { font-size:11px; color:var(--muted); }
+    .notification-actions { display:flex; gap:8px; flex-shrink:0; }
+    .btn { padding:8px 12px; border-radius:8px; border:none; font-weight:600; cursor:pointer; font-size:12px; transition: all 0.2s ease; }
+    .btn-primary { background: linear-gradient(120deg, var(--accent), var(--accent2)); color:#081019; }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(34,211,238,.3); }
+    .btn-success { background: var(--success); color:#081019; }
+    .btn-success:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(16,185,129,.3); }
+    .btn-danger { background: var(--danger); color:#ffffff; }
+    .btn-danger:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(239,68,68,.3); }
+    .btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+    .filter-btn.active {
+      background: var(--accent) !important;
+      border-color: var(--accent) !important;
+      color: white !important;
+    }
+    .type-friend { background: rgba(59,130,246,.2); color:var(--accent2); }
+    .type-system { background: rgba(245,158,11,.2); color:var(--warning); }
+    .type-mention { background: rgba(34,211,238,.2); color:var(--accent); }
+    .type-message { background: rgba(34,211,238,.2); color:var(--accent); }
+    .type-friend_request { background: rgba(59,130,246,.2); color:var(--accent2); }
+    .type-friend_accepted_by { background: rgba(16,185,129,.2); color:var(--success); }
+    .type-friend_rejected_by { background: rgba(239,68,68,.2); color:var(--danger); }
+    .type-friend_accepted { background: rgba(16,185,129,.2); color:var(--success); }
+    .type-friend_rejected { background: rgba(239,68,68,.2); color:var(--danger); }
+    .type-achievement { background: rgba(251,191,36,.2); color:#fbbf24; }
+    .type-reminder { background: rgba(139,92,246,.2); color:#8b5cf6; }
+    .type-update { background: rgba(16,185,129,.2); color:#10b981; }
+    .empty-state { text-align:center; color:var(--muted); padding:60px 20px; }
+    .empty-state i { font-size:48px; margin-bottom:16px; opacity:0.5; }
+    .unread-indicator { width:8px; height:8px; border-radius:50%; background:var(--accent); position:absolute; top:8px; right:8px; }
+    .menu-card {
+      position: fixed;
+      top: 60px;
+      right: 20px;
+      width: 280px;
+      background: rgba(17,24,39,0.95);
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      z-index: 1000;
+      display: none;
+      animation: slideInRight 0.2s ease-out;
+    }
+
+    .menu-card.show {
+      display: block;
+    }
+
+    @keyframes slideInRight {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .menu-header {
+      padding: 20px;
+      border-bottom: 1px solid #1f2937;
+      text-align: center;
+    }
+
+    .menu-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(120deg, var(--accent), var(--accent2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 18px;
+      margin: 0 auto 12px auto;
+    }
+
+    .menu-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e5e7eb;
+      margin: 0 0 4px 0;
+    }
+
+    .menu-email {
+      font-size: 12px;
+      color: var(--muted);
+      margin: 0 0 8px 0;
+      user-select: none;
+    }
+
+    .menu-id {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: monospace;
+      background: rgba(34,211,238,0.1);
+      padding: 4px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      cursor: pointer;
+      user-select: text;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .menu-id:hover {
+      background: rgba(34,211,238,0.2);
+      border-color: var(--accent2);
+      color: var(--accent2);
+      transform: scale(1.02);
+    }
+
+    .menu-id.copied {
+      background: var(--success);
+      color: white;
+      border-color: var(--success);
+    }
+
+    .menu-content {
+      padding: 16px;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 8px;
+    }
+
+    .menu-item:hover {
+      background: rgba(34,211,238,0.1);
+    }
+
+    .menu-item-icon {
+      width: 20px;
+      height: 20px;
+      color: var(--accent2);
+    }
+
+    .menu-item-text {
+      flex: 1;
+      font-size: 14px;
+      color: #e5e7eb;
+    }
+
+    .menu-item-right {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .menu-divider {
+      height: 1px;
+      background: #1f2937;
+      margin: 12px 0;
+    }
+
+    .theme-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .theme-toggle:hover {
+      background: rgba(34,211,238,0.1);
+    }
+
+    .theme-text {
+      font-size: 14px;
+      color: #e5e7eb;
+    }
+
+    .theme-indicator {
+      width: 24px;
+      height: 14px;
+      border-radius: 7px;
+      background: #1f2937;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .theme-indicator.active {
+      background: var(--accent);
+    }
+
+    .theme-indicator::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #e5e7eb;
+      transition: all 0.2s ease;
+      transform: translateX(0);
+    }
+
+    .theme-indicator.active::after {
+      transform: translateX(10px);
+      background: #081019;
+    }
+
+    .logout-btn {
+      background: rgba(239,68,68,0.2);
+      color: #fca5a5;
+      border: 1px solid rgba(239,68,68,0.3);
+    }
+
+    .menu-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.3);
+      z-index: 999;
+      display: none;
+    }
+
+    .menu-overlay.show {
+      display: block;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+      main { grid-template-columns: 1fr; gap:16px; padding:16px; max-width:100%; }
+      .notification-section { padding:16px; }
+      .notification-list { max-height:400px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/private" title="Back to Private Chat">
+      <i class="fas fa-arrow-left"></i>
+    </a>
+    <a href="#" id="menuBtn" style="color:var(--muted); text-decoration:none; font-size:14px; margin-left:auto; padding:6px 8px; border-radius:6px; transition: all 0.2s ease;" title="Menu">
+      <i class="fas fa-bars"></i>
+    </a>
+  </header>
+  
+  <!-- Menu Overlay -->
+  <div id="menuOverlay" class="menu-overlay"></div>
+
+  <!-- Menu Card -->
+  <div id="menuCard" class="menu-card">
+    <div class="menu-header">
+      <div id="menuAvatar" class="menu-avatar">U</div>
+      <div id="menuName" class="menu-name">User Name</div>
+      <div id="menuEmail" class="menu-email">user@example.com</div>
+      <div id="menuId" class="menu-id">ID: 12345</div>
+    </div>
+    <div class="menu-content">
+      <div class="theme-toggle" id="themeToggle">
+        <span class="theme-text">Dark Theme</span>
+        <div id="themeIndicator" class="theme-indicator active"></div>
+      </div>
+
+      <div class="menu-divider"></div>
+
+      <div class="menu-item" id="profileBtn">
+        <i class="fas fa-user menu-item-icon"></i>
+        <span class="menu-item-text">Profile Settings</span>
+        <i class="fas fa-chevron-right menu-item-right"></i>
+      </div>
+
+      <div class="menu-item" id="privacyBtn">
+        <i class="fas fa-lock menu-item-icon"></i>
+        <span class="menu-item-text">Privacy</span>
+        <i class="fas fa-chevron-right menu-item-right"></i>
+      </div>
+
+      <div class="menu-item" id="helpBtn">
+        <i class="fas fa-question-circle menu-item-icon"></i>
+        <span class="menu-item-text">Help & Support</span>
+        <i class="fas fa-chevron-right menu-item-right"></i>
+      </div>
+
+      <div class="menu-divider"></div>
+
+      <div class="menu-item logout-btn" id="logoutBtn">
+        <i class="fas fa-sign-out-alt menu-item-icon"></i>
+        <span class="menu-item-text">Logout</span>
+      </div>
+    </div>
+  </div>
+
+  <main>
+    <div class="notification-section">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h2 style="margin:0; color:var(--accent);">Notifications</h2>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button id="markAllRead" class="btn btn-primary" style="font-size:11px; padding:6px 10px;">
+            <i class="fas fa-check-double"></i> Mark All Read
+          </button>
+        </div>
+      </div>
+
+      <div id="unifiedNotificationsList" class="notification-list">
+        <!-- All notifications will be populated here -->
+      </div>
+
+      <div id="sentRequestsSection" class="sent-requests-section" style="margin-top: 20px;">
+        <div id="sentRequestsList" class="sent-requests-list">
+          <!-- Sent requests will be populated here -->
+        </div>
+      </div>
+
+      <div id="emptyUnifiedNotifications" class="empty-state" style="display:none;">
+        <i class="fas fa-bell-slash"></i>
+        <p>No notifications yet</p>
+        <p>You're all caught up! New notifications will appear here.</p>
+      </div>
+    </div>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/menu.js"></script>
+  <script>
+    (() => {
+      const socket = io();
+      const notificationsList = document.getElementById('unifiedNotificationsList');
+      const emptyNotifications = document.getElementById('emptyUnifiedNotifications');
+      const markAllReadBtn = document.getElementById('markAllRead');
+      const filterButtons = document.querySelectorAll('.filter-btn');
+
+      let currentFilter = 'general';
+      let allNotifications = [];
+
+      function getNotificationIcon(type) {
+        switch (type) {
+          case 'friend_request': return 'fas fa-user-plus';
+          case 'friend_request_sent': return 'fas fa-user-plus';
+          case 'friend_accepted_by': return 'fas fa-check-circle';
+          case 'friend_rejected_by': return 'fas fa-times-circle';
+          case 'group_request': return 'fas fa-users';
+          case 'group_request_sent': return 'fas fa-users';
+          case 'group_request_received': return 'fas fa-users';
+          case 'group_mention': return 'fas fa-at';
+          case 'mention': return 'fas fa-at';
+          case 'message': return 'fas fa-envelope';
+          case 'system': return 'fas fa-cog';
+          case 'achievement': return 'fas fa-trophy';
+          case 'reminder': return 'fas fa-bell';
+          case 'update': return 'fas fa-sync-alt';
+          default: return 'fas fa-info-circle';
+        }
+      }
+
+      function getNotificationColor(type) {
+        switch (type) {
+          case 'friend_request': return 'var(--accent2)';
+          case 'friend_request_sent': return 'var(--accent2)';
+          case 'friend_accepted_by': return 'var(--success)';
+          case 'friend_rejected_by': return 'var(--danger)';
+          case 'group_request': return 'var(--accent)';
+          case 'group_request_sent': return 'var(--accent)';
+          case 'group_request_received': return 'var(--accent)';
+          case 'group_mention': return 'var(--accent)';
+          case 'mention': return 'var(--accent)';
+          case 'message': return 'var(--accent)';
+          case 'system': return 'var(--warning)';
+          case 'achievement': return '#fbbf24';
+          case 'reminder': return '#8b5cf6';
+          case 'update': return '#10b981';
+          default: return 'var(--warning)';
+        }
+      }
+
+      function formatTime(timestamp) {
+        try {
+          // Handle different timestamp formats
+          let date;
+          if (typeof timestamp === 'string') {
+            date = new Date(timestamp);
+          } else if (typeof timestamp === 'number') {
+            date = new Date(timestamp);
+          } else {
+            date = new Date(timestamp);
+          }
+
+          // Check if date is valid
+          if (isNaN(date.getTime())) {
+            return 'Invalid date';
+          }
+
+          const now = new Date();
+          const diff = now - date;
+
+          // More precise time formatting
+          if (diff < 1000) return 'Just now';
+          if (diff < 60000) return `${Math.floor(diff / 1000)}s ago`;
+          if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+          if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+
+          // For older dates, show date and time
+          const today = new Date();
+          const isToday = date.toDateString() === today.toDateString();
+
+          if (isToday) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          } else {
+            return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+          }
+        } catch (error) {
+          console.error('Error formatting time:', error);
+          return 'Unknown time';
+        }
+      }
+
+      function filterNotifications(notifications, filter) {
+        if (filter === 'all') return notifications;
+
+        return notifications.filter(notification => {
+          switch (filter) {
+            case 'general':
+              // Show ALL requests and system notifications in general filter
+              return [
+                'system', 'achievement', 'reminder', 'update',
+                'friend_request', 'friend_request_sent', 'friend_accepted', 'friend_rejected', 'friend_accepted_by', 'friend_rejected_by',
+                'group_request', 'group_request_sent', 'group_request_received', 'group_mention'
+              ].includes(notification.type);
+            case 'friends':
+              return ['friend_request', 'friend_accepted', 'friend_rejected', 'friend_accepted_by', 'friend_rejected_by'].includes(notification.type);
+            case 'groups':
+              return ['mention', 'message', 'group_request', 'group_mention'].includes(notification.type);
+            default:
+              return true;
+          }
+        });
+      }
+
+      function getNotificationTypeLabel(type) {
+        switch (type) {
+          case 'friend_request': return 'Friends';
+          case 'friend_request_sent': return 'Friends';
+          case 'friend_accepted_by': return 'Friends';
+          case 'friend_rejected_by': return 'Friends';
+          case 'group_request': return 'Groups';
+          case 'group_request_sent': return 'Groups';
+          case 'group_request_received': return 'Groups';
+          case 'group_mention': return 'Groups';
+          case 'mention': return 'Groups';
+          case 'message': return 'Groups';
+          case 'system': return 'System';
+          case 'achievement': return 'Achievement';
+          case 'reminder': return 'Reminder';
+          case 'update': return 'Update';
+          default: return 'General';
+        }
+      }
+
+      function updateNotificationBadge() {
+        const badge = document.getElementById('notificationBadge');
+        if (!badge) return; // Exit if badge element doesn't exist
+
+        const unreadNotifications = allNotifications.filter(n => !n.read);
+
+        if (unreadNotifications.length > 0) {
+          badge.style.display = 'block';
+          // Clear any existing text content to show just the red dot
+          badge.textContent = '';
+          badge.innerHTML = '';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+
+      function showNotifications(notifications) {
+        const filteredNotifications = filterNotifications(notifications, currentFilter);
+        notificationsList.innerHTML = '';
+        if (filteredNotifications.length === 0) {
+          emptyNotifications.style.display = 'block';
+          return;
+        }
+
+        emptyNotifications.style.display = 'none';
+
+        filteredNotifications.forEach(notification => {
+          const notificationItem = document.createElement('div');
+          notificationItem.className = `notification-item ${notification.read ? '' : 'unread'}`;
+          if (notification.type.startsWith('friend_')) {
+            notificationItem.classList.add('type-friend');
+          } else if (notification.type.startsWith('group_') || notification.type === 'mention' || notification.type === 'message') {
+            notificationItem.classList.add('type-mention');
+          } else {
+            notificationItem.classList.add(`type-${notification.type}`);
+          }
+
+          const iconColor = getNotificationColor(notification.type);
+          const iconClass = getNotificationIcon(notification.type);
+
+          notificationItem.innerHTML = `
+            <div class="notification-icon" style="background: ${iconColor};">
+              <i class="${iconClass}"></i>
+            </div>
+            <div class="notification-content">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <h4 style="margin: 0;">${notification.title}</h4>
+              </div>
+              <p style="margin: 0 0 8px 0;">${notification.message}</p>
+              <div class="notification-time">${formatTime(notification.timestamp)}</div>
+            </div>
+            <div class="notification-actions">
+              ${!notification.read ? '<div class="unread-indicator"></div>' : ''}
+              ${notification.type === 'friend_request' && notification.from ?
+                '<button class="btn btn-success" onclick="acceptFriendRequest(\'' + notification.from + '\')"><i class="fas fa-check"></i> Accept</button>' +
+                '<button class="btn btn-danger" onclick="rejectFriendRequest(\'' + notification.from + '\')"><i class="fas fa-times"></i> Reject</button>' :
+                notification.type === 'friend_request_sent' && notification.to ?
+                '<button class="btn btn-danger" onclick="cancelFriendRequest(\'' + notification.to + '\')"><i class="fas fa-times"></i> Cancel</button>' :
+                notification.type === 'friend_accepted' || notification.type === 'friend_rejected' ?
+                '<span class="btn" style="background: var(--success); color: white; cursor: default;"><i class="fas fa-check"></i> ' + (notification.type === 'friend_accepted' ? 'Accepted' : 'Rejected') + '</span>' +
+                '<button class="btn btn-danger" onclick="deleteNotification(\'' + notification.id + '\')" style="margin-left: 8px; background: rgba(239,68,68,0.8);"><i class="fas fa-trash"></i></button>' :
+                notification.type === 'friend_accepted_by' || notification.type === 'friend_rejected_by' ?
+                '<span class="btn" style="background: ' + (notification.type === 'friend_accepted_by' ? 'var(--success)' : 'var(--danger)') + '; color: white; cursor: default;"><i class="fas fa-' + (notification.type === 'friend_accepted_by' ? 'check' : 'times') + '"></i> ' + (notification.type === 'friend_accepted_by' ? 'Accepted' : 'Rejected') + '</span>' +
+                '<button class="btn btn-danger" onclick="deleteNotification(\'' + notification.id + '\')" style="margin-left: 8px; background: rgba(239,68,68,0.8);"><i class="fas fa-trash"></i></button>' :
+                ''
+              }
+            </div>
+          `;
+
+          notificationsList.appendChild(notificationItem);
+        });
+
+        updateNotificationBadge();
+      }
+
+      function addNotification(notification) {
+        // Add to the beginning of the array (newest first)
+        allNotifications.unshift({
+          id: Date.now(), // Simple ID generation
+          ...notification,
+          read: false,
+          timestamp: Date.now()
+        });
+
+        // Keep only the latest 50 notifications
+        if (allNotifications.length > 50) {
+          allNotifications = allNotifications.slice(0, 50);
+        }
+
+        showNotifications(allNotifications);
+        updateNotificationBadge();
+      }
+
+      async function loadNotifications() {
+        try {
+          const response = await fetch('/api/notifications', {
+            credentials: 'include'
+          });
+          const data = await response.json();
+
+          // For demonstration, add some sample notifications if the API returns empty
+          let notifications = data.notifications || [];
+
+          if (notifications.length === 0 && currentUser) {
+            // Add sample notifications for demonstration
+            notifications = [
+              {
+                id: 1,
+                type: 'friend_request',
+                title: 'Friend Request',
+                message: `@${currentUser} sent you a friend request`,
+                from: 'sample@example.com',
+                timestamp: Date.now() - 3600000, // 1 hour ago
+                read: false
+              },
+              {
+                id: 2,
+                type: 'mention',
+                title: 'Group Mention',
+                message: 'You were mentioned in #general',
+                from: 'user@example.com',
+                timestamp: Date.now() - 7200000, // 2 hours ago
+                read: false
+              },
+              {
+                id: 3,
+                type: 'message',
+                title: 'New Message',
+                message: 'You have a new message in Development group',
+                from: 'system',
+                timestamp: Date.now() - 10800000, // 3 hours ago
+                read: true
+              },
+              {
+                id: 4,
+                type: 'friend_accepted',
+                title: 'Friend Request Accepted',
+                message: 'Your friend request was accepted',
+                from: 'friend@example.com',
+                timestamp: Date.now() - 86400000, // 1 day ago
+                read: true
+              },
+              {
+                id: 5,
+                type: 'achievement',
+                title: 'Achievement Unlocked!',
+                message: 'You earned the "Early Bird" badge for being active this week',
+                from: 'system',
+                timestamp: Date.now() - 172800000, // 2 days ago
+                read: false
+              },
+              {
+                id: 6,
+                type: 'system',
+                title: 'System Update',
+                message: 'New features have been added to the platform',
+                from: 'system',
+                timestamp: Date.now() - 259200000, // 3 days ago
+                read: true
+              },
+              {
+                id: 7,
+                type: 'reminder',
+                title: 'Reminder',
+                message: 'Don\'t forget about the team meeting tomorrow at 2 PM',
+                from: 'system',
+                timestamp: Date.now() - 345600000, // 4 days ago
+                read: false
+              }
+            ];
+          }
+
+          allNotifications = notifications;
+          showNotifications(allNotifications);
+          updateNotificationBadge();
+        } catch (error) {
+          console.error('Failed to load notifications:', error);
+          allNotifications = [];
+          showNotifications([]);
+          updateNotificationBadge();
+        }
+      }
+
+      async function acceptFriendRequest(fromUser) {
+        try {
+          const response = await fetch('/api/friends/accept-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ targetUser: fromUser })
+          });
+
+          if (response.ok) {
+            // Update the specific notification to show "accepted"
+            const notification = allNotifications.find(n => n.type === 'friend_request' && n.from === fromUser);
+            if (notification) {
+              notification.type = 'friend_accepted';
+              notification.title = 'Friend Request Accepted';
+              notification.message = `You accepted ${fromUser}'s friend request`;
+              notification.read = true;
+            }
+
+            // Refresh the display
+            showNotifications(allNotifications);
+          }
+        } catch (error) {
+          console.error('Failed to accept friend request:', error);
+        }
+      }
+
+      async function rejectFriendRequest(fromUser) {
+        try {
+          const response = await fetch('/api/friends/reject-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ targetUser: fromUser })
+          });
+
+          if (response.ok) {
+            // Update the specific notification to show "rejected"
+            const notification = allNotifications.find(n => n.type === 'friend_request' && n.from === fromUser);
+            if (notification) {
+              notification.type = 'friend_rejected';
+              notification.title = 'Friend Request Rejected';
+              notification.message = `You rejected ${fromUser}'s friend request`;
+              notification.read = true;
+            }
+
+            // Refresh the display
+            showNotifications(allNotifications);
+          }
+        } catch (error) {
+          console.error('Failed to reject friend request:', error);
+        }
+      }
+
+      async function cancelFriendRequest(toUser) {
+        try {
+          const response = await fetch('/api/friends/cancel-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ targetUser: toUser })
+          });
+
+          if (response.ok) {
+            loadNotifications();
+          }
+        } catch (error) {
+          console.error('Failed to cancel friend request:', error);
+        }
+      }
+
+      async function sendFriendRequest(targetUser) {
+        try {
+          const response = await fetch('/api/friends/send-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ targetUser: targetUser })
+          });
+
+          if (response.ok) {
+            loadNotifications();
+            // Update button text to "Cancel"
+            const button = document.querySelector(`[onclick="sendFriendRequest('${targetUser}')"]`);
+            if (button) {
+              button.textContent = 'Cancel';
+              button.onclick = () => cancelFriendRequest(targetUser);
+              button.className = 'btn btn-danger';
+            }
+          }
+        } catch (error) {
+          console.error('Failed to send friend request:', error);
+        }
+      }
+
+      async function deleteNotification(notificationId) {
+        try {
+          const response = await fetch('/api/notifications/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ notificationId })
+          });
+
+          if (response.ok) {
+            // Remove the notification from the local array
+            allNotifications = allNotifications.filter(n => n.id !== notificationId);
+            showNotifications(allNotifications);
+            updateNotificationBadge();
+          }
+        } catch (error) {
+          console.error('Failed to delete notification:', error);
+        }
+      }
+
+      // Event listeners
+      markAllReadBtn.addEventListener('click', markAllRead);
+
+      // Filter button event listeners
+      filterButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          // Remove active class from all buttons
+          filterButtons.forEach(btn => btn.classList.remove('active'));
+          // Add active class to clicked button
+          button.classList.add('active');
+
+          // Update current filter and refresh display
+          currentFilter = button.dataset.filter;
+          showNotifications(allNotifications);
+        });
+      });
+      // Socket event handlers
+      socket.on('connect', async () => {
+        console.log('Connected to server');
+
+        // Get current user information
+        try {
+          const response = await fetch('/api/auth/me', {
+            credentials: 'include'
+          });
+          if (response.ok) {
+            const user = await response.json();
+            currentUser = user.userEmail;
+          }
+        } catch (error) {
+          console.error('Failed to get current user:', error);
+        }
+      });
+
+      socket.on('notification', (notification) => {
+        addNotification(notification);
+      });
+
+      socket.on('friendRequest', (request) => {
+        addNotification({
+          type: 'friend_request',
+          title: 'Friend Request',
+          message: `New friend request from ${request.from}`,
+          from: request.from
+        });
+      });
+
+      socket.on('friendRequestAcceptedBy', (data) => {
+        addNotification({
+          type: 'friend_accepted_by',
+          title: 'Friend Request Accepted',
+          message: `${data.from} accepted your friend request`,
+          from: data.from
+        });
+      });
+
+      socket.on('friendRequestRejectedBy', (data) => {
+        addNotification({
+          type: 'friend_rejected_by',
+          title: 'Friend Request Rejected',
+          message: `${data.from} rejected your friend request`,
+          from: data.from
+        });
+      });
+
+      socket.on('groupRequest', (request) => {
+        // Group requests will be handled by the group system
+      });
+
+      socket.on('groupRequestHandled', (data) => {
+        // Group request handled - refresh notifications if needed
+        loadNotifications();
+      });
+
+      // Make functions available globally for onclick handlers
+      window.acceptFriendRequest = acceptFriendRequest;
+      window.rejectFriendRequest = rejectFriendRequest;
+      window.cancelFriendRequest = cancelFriendRequest;
+      window.sendFriendRequest = sendFriendRequest;
+      window.deleteNotification = deleteNotification;
+
+      // Load initial data
+      loadNotifications();
+    })();
+  </script>
+</body>
+</html>

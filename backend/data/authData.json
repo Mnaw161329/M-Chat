@@ -1,0 +1,134 @@
+{
+  "users": [
+    {
+      "userId": "1759060142644",
+      "userPassword": "$2b$12$cfPudoxdp7U5t4GXqWai8OBUuYaK9N9oDD.bstXnllKFMhDKs2/X.",
+      "userName": "Zaw Seng",
+      "userEmail": "zawseng@gmail.com",
+      "createdAt": "2025-09-28T11:49:02.644Z",
+      "friends": [
+        {
+          "friendEmail": "mnaw@gmail.com",
+          "requesterStatus": "accepted",
+          "messages": [
+            {
+              "text": "hi",
+              "sender": "zawseng@gmail.com",
+              "status": "sent",
+              "timestamp": "2025-09-28T11:49:47.919Z"
+            },
+            {
+              "text": "hello",
+              "sender": "mnaw@gmail.com",
+              "status": "received",
+              "timestamp": "2025-09-28T11:50:10.808Z"
+            },
+            {
+              "text": "hi",
+              "sender": "mnaw@gmail.com",
+              "status": "received",
+              "timestamp": "2025-09-28T14:26:35.877Z"
+            }
+          ]
+        },
+        {
+          "friendEmail": "user@gmail.com",
+          "requesterStatus": "accepted",
+          "messages": []
+        }
+      ],
+      "groups": [],
+      "receivedRequests": []
+    },
+    {
+      "userId": "1759060158956",
+      "userPassword": "$2b$12$Jv6n3NL0vwYptIGu5a6XOO7om/ZmQS.nGqXp9GHL9csfJJxiR/yGW",
+      "userName": "M Naw",
+      "userEmail": "mnaw@gmail.com",
+      "createdAt": "2025-09-28T11:49:18.956Z",
+      "friends": [
+        {
+          "friendEmail": "zawseng@gmail.com",
+          "requesterStatus": "received",
+          "messages": [
+            {
+              "text": "hi",
+              "sender": "zawseng@gmail.com",
+              "status": "received",
+              "timestamp": "2025-09-28T11:49:47.919Z"
+            },
+            {
+              "text": "hello",
+              "sender": "mnaw@gmail.com",
+              "status": "sent",
+              "timestamp": "2025-09-28T11:50:10.808Z"
+            },
+            {
+              "text": "hi",
+              "sender": "mnaw@gmail.com",
+              "status": "sent",
+              "timestamp": "2025-09-28T14:26:35.877Z"
+            }
+          ]
+        },
+        {
+          "friendEmail": "user@gmail.com",
+          "requesterStatus": "accepted",
+          "messages": [
+            {
+              "text": "hello",
+              "sender": "user@gmail.com",
+              "status": "received",
+              "timestamp": "2025-09-28T11:52:09.334Z"
+            },
+            {
+              "text": "hi",
+              "sender": "user@gmail.com",
+              "status": "received",
+              "timestamp": "2025-09-28T14:26:44.856Z"
+            }
+          ]
+        }
+      ],
+      "groups": [],
+      "sentRequests": [],
+      "notifications": [],
+      "receivedRequests": []
+    },
+    {
+      "userId": "1759060257533",
+      "userPassword": "$2b$12$C8dx.XkkSPa5jxiHkwQiHu3SlIDjEI0WtSk5zqVhWT2ZTcaJQvdTG",
+      "userName": "User1",
+      "userEmail": "user@gmail.com",
+      "createdAt": "2025-09-28T11:50:57.533Z",
+      "friends": [
+        {
+          "friendEmail": "mnaw@gmail.com",
+          "requesterStatus": "received",
+          "messages": [
+            {
+              "text": "hello",
+              "sender": "user@gmail.com",
+              "status": "sent",
+              "timestamp": "2025-09-28T11:52:09.334Z"
+            },
+            {
+              "text": "hi",
+              "sender": "user@gmail.com",
+              "status": "sent",
+              "timestamp": "2025-09-28T14:26:44.856Z"
+            }
+          ]
+        },
+        {
+          "friendEmail": "zawseng@gmail.com",
+          "requesterStatus": "received",
+          "messages": []
+        }
+      ],
+      "groups": [],
+      "sentRequests": [],
+      "notifications": []
+    }
+  ]
+}

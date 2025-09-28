@@ -1,0 +1,11 @@
+{
+  "ignore": [
+    "backend/data/**"
+  ],
+  "watch": [
+    "index.js",
+    "backend/**/*.js",
+    "public/**/*.js"
+  ],
+  "ext": "js"
+}

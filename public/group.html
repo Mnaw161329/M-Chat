@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en" style="user-select: none;">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Group Chat - JSON Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root { --bg:#0f172a; --panel:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#22d3ee; --accent2:#60a5fa; --success:#10b981; --warning:#f59e0b; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: linear-gradient(120deg, #0f172a, #0b1023); color: var(--text); }
+    header { padding:16px 20px; display:flex; gap:12px; align-items:center; border-bottom:1px solid #1f2937; background: rgba(17,24,39,.6); backdrop-filter: blur(6px); position:sticky; top:0; z-index:10; }
+    main { display:grid; grid-template-columns: 280px 1fr; gap:20px; padding:20px; height: calc(100vh - 96px); }
+    .sidebar { background: rgba(17,24,39,.6); border:1px solid #1f2937; border-radius:12px; padding:8px; display:flex; flex-direction:column; gap:8px; width:280px; flex-shrink:0; }
+    .room-list { display:flex; flex-direction:column; gap:8px; overflow:auto; }
+    .room { padding:12px 16px; border-radius:16px; border:1px solid #1f2937; cursor:pointer; color:#cbd5e1; background:#0b1220; transition: all 0.2s ease; display:flex; align-items:center; gap:12px; justify-content:space-between; }
+    .room:hover { background: rgba(34,211,238,.1); border-color:#334155; color:#e5e7eb; }
+    .room.active { background: linear-gradient(120deg, rgba(34,211,238,.15), rgba(96,165,250,.15)); border-color:#334155; color:#e5e7eb; }
+    .room-avatar { width:32px; height:32px; border-radius:50%; background:linear-gradient(120deg, var(--accent), var(--accent2)); display:flex; align-items:center; justify-content:center; font-weight:600; font-size:14px; }
+    .room-info { display:flex; flex-direction:column; gap:4px; flex:1; }
+    .room-name { font-weight:600; color:#e5e7eb; font-size:15px; }
+    .sidebar-header { margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid #1f2937; min-height:40px; height:40px; display:flex; align-items:center; justify-content:space-between; }
+    .main-title { width:120px; text-align:center; margin:0; font-size:16px; color:var(--accent); }
+    .room-form { display:flex; gap:8px; transition: all 0.3s ease; width:100%; text-align: right; }
+    .room-form input { flex:1; padding:8px 12px; border-radius:10px; border:1px solid #1f2937; background:#0b1220; color:#e5e7eb; transition: all 0.3s ease; height:32px; }
+    .room-form button { padding:8px 12px; border-radius:10px; border:1px solid #334155; background: linear-gradient(120deg, var(--accent), var(--accent2)); color:#081019; font-weight:600; cursor:pointer; transition: all 0.3s ease; margin-right:0; width:50px; display:flex; align-items:center; justify-content:center; height:32px; flex-shrink:0; }
+
+    .chat { display:grid; grid-template-rows: 60px 1fr 70px; gap:22px; height: calc(100vh - 96px); align-items: stretch; justify-items: stretch; }
+    .topbar { background: rgba(17,24,39,.6); border:1px solid #1f2937; border-radius:12px; display:flex; align-items:center; padding:0 20px; }
+    .topbar h2 { margin:0; font-size:16px; color:var(--accent); display:flex; align-items:center; gap:8px; }
+
+    .messages { background: rgba(17,24,39,.6); border:1px solid #1f2937; border-radius:12px; padding:16px; overflow:auto; display:flex; flex-direction:column; gap:10px; max-height: calc(100vh - 180px); min-height: 420px; }
+    .msg { max-width:75%; padding:12px 16px; border-radius:12px; border:1px solid #1f2937; background:#0b1220; box-shadow: 0 0 0 1px rgba(255,255,255,.02) inset; }
+    .msg.me { margin-left:auto; background: linear-gradient(120deg, rgba(34,211,238,.2), rgba(96,165,250,.2)); }
+    .msg.group { border-left:3px solid var(--accent); }
+    .msg .meta { font-size:11px; color:#94a3b8; margin-bottom:4px; }
+    .msg .text { white-space: pre-wrap; word-wrap: break-word; }
+    .sys { align-self:center; font-size:12px; color:#94a3b8; padding:8px 12px; background:rgba(15,23,42,.6); border:1px dashed #334155; border-radius:999px; margin:8px 0; }
+
+    .composer { display:flex; gap:10px; align-items: center; padding: 0; margin: 0; height: 48px; }
+    .composer input { flex:1; padding:20px 24px; border-radius:12px; border:1px solid #1f2937; background:#0b1220; color:#e5e7eb; height:36px; font-size:14px; line-height:36px; text-align:left; margin-bottom:0; }
+    .composer button { padding:20px 24px; border-radius:12px; border:1px solid #334155; background: linear-gradient(120deg, var(--accent), var(--accent2)); color:#081019; font-weight:700; cursor:pointer; height:36px; font-size:14px; line-height:36px; text-align:center; display:flex; align-items:center; justify-content:center; margin-bottom:0; }
+
+    .welcome-message { text-align:center; color:var(--muted); padding:40px; }
+    .welcome-message i { font-size:48px; margin-bottom:16px; opacity:0.5; }
+    .profile-content {
+      background: var(--panel);
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .profile-info h3 {
+      margin: 0 0 8px 0;
+      color: var(--text);
+    }
+
+    .profile-info p {
+      margin: 4px 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .profile-info .user-id {
+      color: var(--accent);
+      font-family: monospace;
+    }
+
+    .close-profile {
+      background: var(--accent);
+      color: #081019;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 16px;
+      font-weight: 600;
+    }
+
+    /* Menu Card Styles */
+    .menu-card {
+      position: fixed;
+      top: 60px;
+      right: 20px;
+      width: 280px;
+      background: rgba(17,24,39,0.95);
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      z-index: 1000;
+      display: none;
+      animation: slideInRight 0.2s ease-out;
+    }
+
+    .menu-card.show {
+      display: block;
+    }
+
+    @keyframes slideInRight {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .menu-header {
+      padding: 20px;
+      border-bottom: 1px solid #1f2937;
+      text-align: center;
+    }
+
+    .menu-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(120deg, var(--accent), var(--accent2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 18px;
+      margin: 0 auto 12px auto;
+    }
+
+    .menu-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e5e7eb;
+      margin: 0 0 4px 0;
+    }
+
+    .menu-email {
+      font-size: 12px;
+      color: var(--muted);
+      margin: 0 0 8px 0;
+      user-select: none;
+    }
+
+    .menu-id {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: monospace;
+      background: rgba(34,211,238,0.1);
+      padding: 4px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      cursor: pointer;
+      user-select: text;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .menu-id:hover {
+      background: rgba(34,211,238,0.2);
+      border-color: var(--accent2);
+      color: var(--accent2);
+      transform: scale(1.02);
+    }
+
+    .menu-id.copied {
+      background: var(--success);
+      color: white;
+      border-color: var(--success);
+    }
+
+    .menu-content {
+      padding: 16px;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 8px;
+    }
+
+    .menu-item:hover {
+      background: rgba(34,211,238,0.1);
+    }
+
+    .menu-item-icon {
+      width: 20px;
+      height: 20px;
+      color: var(--accent2);
+    }
+
+    .menu-item-text {
+      flex: 1;
+      font-size: 14px;
+      color: #e5e7eb;
+    }
+
+    .menu-item-right {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .menu-divider {
+      height: 1px;
+      background: #1f2937;
+      margin: 12px 0;
+    }
+
+    .theme-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .theme-toggle:hover {
+      background: rgba(34,211,238,0.1);
+    }
+
+    .theme-text {
+      font-size: 14px;
+      color: #e5e7eb;
+    }
+
+    .theme-indicator {
+      width: 24px;
+      height: 14px;
+      border-radius: 7px;
+      background: #1f2937;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .theme-indicator.active {
+      background: var(--accent);
+    }
+
+    .theme-indicator::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #e5e7eb;
+      transition: all 0.2s ease;
+      transform: translateX(0);
+    }
+
+    .theme-indicator.active::after {
+      transform: translateX(10px);
+      background: #081019;
+    }
+
+    .logout-btn {
+      background: rgba(239,68,68,0.2);
+      color: #fca5a5;
+      border: 1px solid rgba(239,68,68,0.3);
+    }
+
+    .logout-btn:hover {
+      background: rgba(239,68,68,0.3);
+    }
+
+    .menu-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.3);
+      z-index: 999;
+      display: none;
+    }
+
+    .menu-overlay.show {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div style="font-size:18px; font-weight:600; color:var(--accent); margin-right:12px;">JSON Chat</div>
+    <a href="/private" style="color:var(--accent2); text-decoration:none; font-size:14px; margin-left:auto;">
+      Private Chat <i class="fas fa-exchange-alt"></i>
+    </a>
+    <a href="/notification" style="color:var(--accent2); text-decoration:none; font-size:14px; margin-left:12px; padding:6px 8px; border-radius:6px; transition: all 0.2s ease; position: relative;" title="Notifications">
+      <i class="fas fa-bell"></i>
+      <span id="notificationBadge" style="position: absolute; top: 4px; right: 4px; background: #ef4444; color: transparent; border-radius: 50%; width: 4px; height: 4px; display: none; font-size: 10px; line-height: 1;"></span>
+    </a>
+    <a href="#" id="menuBtn" style="color:var(--muted); text-decoration:none; font-size:14px; margin-left:8px; padding:6px 8px; border-radius:6px; transition: all 0.2s ease;" title="Menu">
+      <i class="fas fa-bars"></i>
+    </a>
+  </header>
+
+  <!-- Menu Overlay -->
+  <div id="menuOverlay" class="menu-overlay"></div>
+
+  <!-- Menu Card -->
+  <div id="menuCard" class="menu-card">
+    <div class="menu-header">
+      <div id="menuAvatar" class="menu-avatar">U</div>
+      <div id="menuName" class="menu-name">User Name</div>
+      <div id="menuEmail" class="menu-email">user@example.com</div>
+      <div id="menuId" class="menu-id">ID: 12345</div>
+    </div>
+    <div class="menu-content">
+      <div class="theme-toggle" id="themeToggle">
+        <span class="theme-text">Dark Theme</span>
+        <div id="themeIndicator" class="theme-indicator active"></div>
+      </div>
+
+      <div class="menu-divider"></div>
+
+      <div class="menu-item" id="profileBtn">
+        <i class="fas fa-user menu-item-icon"></i>
+        <span class="menu-item-text">Profile Settings</span>
+        <i class="fas fa-chevron-right menu-item-right"></i>
+      </div>
+
+      <div class="menu-item" id="privacyBtn">
+        <i class="fas fa-lock menu-item-icon"></i>
+        <span class="menu-item-text">Privacy</span>
+        <i class="fas fa-chevron-right menu-item-right"></i>
+      </div>
+
+      <div class="menu-item" id="helpBtn">
+        <i class="fas fa-question-circle menu-item-icon"></i>
+        <span class="menu-item-text">Help & Support</span>
+        <i class="fas fa-chevron-right menu-item-right"></i>
+      </div>
+
+      <div class="menu-divider"></div>
+
+      <div class="menu-item logout-btn" id="logoutBtn">
+        <i class="fas fa-sign-out-alt menu-item-icon"></i>
+        <span class="menu-item-text">Logout</span>
+      </div>
+    </div>
+  </div>
+
+  <main>
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1 class="main-title">GROUP CHAT</h1>
+        <a href="/groups" style="color:var(--accent2); text-decoration:none; font-size:14px; margin-left:auto; padding:6px 8px; border-radius:6px; transition: all 0.2s ease;" title="Browse Groups">
+          <i class="fas fa-plus"></i>
+        </a>
+      </div>
+      <div style="margin-bottom:8px;">
+        <input type="text" id="roomSearch" placeholder="Search groups..." style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid #1f2937; background:#0b1220; color:#e5e7eb; font-size:14px; margin-bottom:4px;" />
+        <div class="room-list" id="rooms"></div>
+      </div>
+    </aside>
+
+    <section class="chat">
+      <div class="topbar">
+        <h2 id="roomLabel">
+          Select a group to start chatting
+        </h2>
+      </div>
+      <div class="messages" id="messages">
+        <div class="welcome-message">
+          <h3>Group Chat</h3>
+          <p>Chat with multiple people in groups. Create new groups or join existing ones.</p>
+          <p><a href="/private" style="color:var(--accent); text-decoration:none; font-weight:600;">Private Chat</a> to message individual users.</p>
+        </div>
+      </div>
+      <div class="composer">
+        <input type="text" id="input" placeholder="Type your message..." disabled />
+        <button id="send" disabled><i class="fas fa-paper-plane"></i></button>
+      </div>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/menu.js"></script>
+  <script>
+    (() => {
+      const socket = io();
+      const roomsEl = document.getElementById('rooms');
+      const roomLabelEl = document.getElementById('roomLabel');
+      const messagesEl = document.getElementById('messages');
+      const inputEl = document.getElementById('input');
+      const sendBtn = document.getElementById('send');
+      const roomSearchEl = document.getElementById('roomSearch');
+
+      let currentRoom = null;
+      let userName = null;
+      let currentUser = null;
+      let allRooms = []; // Store all rooms for filtering
+
+      function getRoomAvatar(name) {
+        return name.charAt(0).toUpperCase();
+      }
+
+      function addSystem(text) {
+        const div = document.createElement('div');
+        div.className = 'sys';
+        div.textContent = text;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function addMessage({ userName: sender, text, ts }, me) {
+        const wrap = document.createElement('div');
+        wrap.className = 'msg group' + (me ? ' me' : '');
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        const when = new Date(ts).toLocaleTimeString();
+        meta.textContent = `${sender} • ${when}`;
+        const body = document.createElement('div');
+        body.className = 'text';
+        body.textContent = text;
+        wrap.appendChild(meta);
+        wrap.appendChild(body);
+        messagesEl.appendChild(wrap);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function filterRooms(searchTerm) {
+        if (!searchTerm.trim()) {
+          renderRooms(allRooms);
+          return;
+        }
+
+        const filtered = allRooms.filter(room => {
+          return room.toLowerCase().includes(searchTerm.toLowerCase());
+        });
+
+        renderRooms(filtered);
+      }
+
+      function renderRooms(rooms) {
+        allRooms = rooms; // Store all rooms for filtering
+        roomsEl.innerHTML = '';
+        if (rooms.length === 0) {
+          roomsEl.innerHTML = `
+            <div style="text-align:center; color:var(--muted); padding:20px;">
+              <i class="fas fa-search" style="font-size:32px; margin-bottom:12px; opacity:0.5;"></i>
+              <p style="margin:0 0 8px 0;">No groups found</p>
+              <p style="margin:0; font-size:12px;">Try adjusting your search terms</p>
+            </div>
+          `;
+          return;
+        }
+
+        rooms.forEach((room) => {
+          const roomEl = document.createElement('div');
+          roomEl.className = 'room' + (room === currentRoom ? ' active' : '');
+          roomEl.innerHTML = `
+            <div class="room-avatar">${getRoomAvatar(room)}</div>
+            <div class="room-info">
+              <div class="room-name">${room}</div>
+            </div>
+          `;
+          roomEl.onclick = () => switchRoom(room);
+          roomsEl.appendChild(roomEl);
+        });
+      }
+
+      async function loadRooms() {
+        try {
+          const response = await fetch('/api/groups');
+          const data = await response.json();
+          const roomNames = (data.groups || []).map(g => g.groupName);
+          renderRooms(roomNames);
+        } catch (error) {
+          console.error('Failed to load groups:', error);
+          renderRooms([]);
+        }
+      }
+
+      // Search functionality
+      roomSearchEl.addEventListener('input', (e) => {
+        filterRooms(e.target.value);
+      });
+
+      roomSearchEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          roomSearchEl.value = '';
+          filterRooms('');
+          roomSearchEl.blur();
+        }
+      });
+
+      function switchRoom(room) {
+        if (room === currentRoom) return;
+        if (currentRoom) socket.emit('leave', currentRoom);
+        currentRoom = room;
+        roomLabelEl.innerHTML = `
+          ${room}
+        `;
+        messagesEl.innerHTML = `
+          <div class="welcome-message">
+            <p>Group: ${room}</p>
+            <p>Start chatting with group members.</p>
+          </div>
+        `;
+        inputEl.disabled = false;
+        sendBtn.disabled = false;
+        socket.emit('switchGroup', room);
+      }
+
+      function sendMessage() {
+        const text = inputEl.value.trim();
+        if (!text || !currentRoom) return;
+        socket.emit('message', text);
+        inputEl.value = '';
+        // Add optimistic message
+        addMessage({ userName: userName, text, ts: Date.now() }, true);
+      }
+
+      socket.on('connect', async () => {
+        loadRooms();
+
+        // Get current user information
+        try {
+          const response = await fetch('/api/auth/me');
+          if (response.ok) {
+            const user = await response.json();
+            userName = user.userName;
+            currentUser = user.userEmail;
+          }
+        } catch (error) {
+          console.error('Failed to get current user:', error);
+        }
+      });
+
+      socket.on('disconnect', () => {
+        // Connection lost
+      });
+
+      socket.on('history', (msgs) => {
+        messagesEl.innerHTML = '';
+        (msgs || []).forEach((msg) => {
+          const isMe = msg.sender === userName;
+          addMessage(msg, isMe);
+        });
+      });
+
+      socket.on('message', (msg) => {
+        addMessage(msg, false);
+      });
+
+      socket.on('joinedGroup', (groupName) => {
+        addSystem(`Successfully joined ${groupName}!`);
+        loadRooms();
+      });
+
+      socket.on('joinRequestSent', (groupName) => {
+        addSystem(`Join request sent for ${groupName}. Waiting for approval.`);
+        loadRooms();
+      });
+
+      socket.on('error', (error) => {
+        addSystem(`Error: ${error.message}`);
+      });
+
+      // Event listeners
+      sendBtn.addEventListener('click', sendMessage);
+      inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendMessage();
+      });
+
+      // Load rooms on page load
+      loadRooms();
+
+      // Notification badge functionality
+      async function updateNotificationBadge() {
+        try {
+          const response = await fetch('/api/notifications', {
+            credentials: 'include'
+          });
+          const data = await response.json();
+          const badge = document.getElementById('notificationBadge');
+          const unreadNotifications = (data.notifications || []).filter(n => !n.read);
+
+          if (unreadNotifications.length > 0) {
+            badge.style.display = 'block';
+            // Clear any text content to show just the red dot
+            badge.textContent = '';
+            badge.innerHTML = '';
+          } else {
+            badge.style.display = 'none';
+          }
+        } catch (error) {
+          console.error('Failed to update notification badge:', error);
+        }
+      }
+
+      // Update badge on page load
+      updateNotificationBadge();
+    });
+</script>
+</html>
